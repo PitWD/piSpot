@@ -14,7 +14,7 @@ if [[ -f "$CONF_FILE" ]]; then
     source "$CONF_FILE"
 else
     echo "[\\033[31m!\\033[0m]"
-    echo "Konfigurationsdatei $CONF_FILE nicht gefunden." >&2
+    echo "Config '$CONF_FILE' not found." >&2
     exit 1
 fi
 echo "[\\033[32m✓\\033[0m]"
@@ -167,6 +167,21 @@ nmcli connection add type wifi \
     mode ap
 echo "[\\033[32m✓\\033[0m]"
 echo
+
+# Ask for PASSWORD if PASSWORD is "piSpot1234" or len < 8
+if [[ "$PASSWORD" == "piSpot1234" || ${#PASSWORD} -lt 8 ]]; then
+    echo -n "[?] Please enter a new password for '$SSID' AP connection: "
+    read -s PASSWORD
+    echo
+fi
+# Check if PASSWORD has at least 8 characters
+if [[ ${#PASSWORD} -lt 8 ]]; then
+    echo "[\\033[31m!\\033[0m]"
+    echo "Password must be at least 8 characters long." >&2
+    echo "Please run this script again and enter a valid password." >&2
+    exit 1
+fi
+
 echo -n "[14] Modify '$SSID' AP connection... "
 nmcli connection modify "$SSID" \
     802-11-wireless.mode ap \
@@ -241,7 +256,7 @@ exit 0
 
 
 
-# OLD SHIT  -  DO NOT USE
+# VERY OLD SHIT  -  DO NOT USE
 ########## Setup/Control/Update Wrapper ##########
 
 # Aktuelles Verzeichnis merken

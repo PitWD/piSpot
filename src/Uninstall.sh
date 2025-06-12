@@ -3,31 +3,41 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONF_FILE="$SCRIPT_DIR/piSpot.conf"
 
-# Konfiguration einlesen
+clear
+echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+echo "| \\033[1m p i S p o t   U n i n s t a l l a t i o n   S c r i p t \\033[0m |"
+echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+echo
+
+echo -n "[ 1] Check and get 'piSpot.conf' configuration file... "
+# Get piSpot configuration
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONF_FILE="$SCRIPT_DIR/piSpot.conf"
 if [[ -f "$CONF_FILE" ]]; then
     source "$CONF_FILE"
 else
-    echo "Konfigurationsdatei $CONF_FILE nicht gefunden." >&2
+    echo "[\\033[31m!\\033[0m]"
+    echo "Config '$CONF_FILE' not found." >&2
     exit 1
 fi
+echo "[\\033[32m✓\\033[0m]"
 
-if [[ -z "$WRAPPER_LOCATION" ]]; then
-    echo "WRAPPER_LOCATION nicht definiert in $CONF_FILE." >&2
-    exit 1
-fi
-
-# Root-Rechte erforderlich
+echo -n "[ 2] Check for root privileges... "
+# Check for root privileges
 if [[ "$EUID" -ne 0 ]]; then
-	echo "Dieses Skript muss mit root-Rechten ausgeführt werden." >&2
+    echo "[\\033[31m!\\033[0m]"
+	echo "Missing root privileges - use sudo...!" >&2
 	exit 1
 fi
-
+echo "[\\033[32m✓\\033[0m]"
 
 # Access Point entfernen
-echo "[+] Down $SSID..."
+echo -n "[ 3] Down $SSID... "
 nmcli connection down "$SSID"
-echo "[+] Remove $SSID..."
+echo "[\\033[32m✓\\033[0m]"
+echo -n "[ 4] Remove $SSID... "
 nmcli connection delete "$SSID"
+echo "[\\033[32m✓\\033[0m]"
 
 # Bei IPv4method ungleich shared
 if [[ "$IPV4method" != "shared" ]]; then
@@ -45,27 +55,43 @@ if [[ "$IPV4method" != "shared" ]]; then
     iptables -D INPUT -i "$UPSTREAM" -j DROP 2>/dev/null || true
 fi
 
+echo -n "[ 5] Remove wrapper at '$WRAPPER_LOCATION'... "
 # Wrapper entfernen
 if [[ -f "$WRAPPER_LOCATION" ]]; then
+    # remove wrapper file
     rm -f "$WRAPPER_LOCATION"
-    echo "Wrapper $WRAPPER_LOCATION wurde entfernt."
+    # remove wrapper folder if empty
+    WRAPPER_DIR="$(dirname "$WRAPPER_LOCATION")"
+    if [[ -d "$WRAPPER_DIR" ]] && [[ -z "$(ls -A "$WRAPPER_DIR")" ]]; then
+        rmdir "$WRAPPER_DIR"
+    fi
+    echo "[\\033[32m✓\\033[0m]"
+    echo "Wrapper '$WRAPPER_LOCATION' removed."
 else
-    echo "Wrapper $WRAPPER_LOCATION war nicht vorhanden."
+    echo "[\\033[31m!\\033[0m]"
+    echo "Wrapper $WRAPPER_LOCATION did not exist."
 fi
 
-# /etc/environment bereinigen
-ENV_FILE="/etc/environment"
-if grep -q "/usr/local/piSpot/bin" "$ENV_FILE"; then
-    cp "$ENV_FILE" "$ENV_FILE.bak"
-    sed -i 's|/usr/local/piSpot/bin:||g' "$ENV_FILE"
-    echo "/etc/environment bereinigt. Bitte neu einloggen oder neu starten, damit die Änderung wirksam wird."
-
-    read -p "System jetzt neu starten, um Umgebungsvariablen zu übernehmen? [j/N] " confirm
-    if [[ "$confirm" =~ ^[Jj]$ ]]; then
-        echo "System wird neu gestartet. Danach ggf. dieses Skript bei Bedarf erneut ausführen."
-        read -p "Drücke ENTER zum Fortfahren..."
-        reboot
+echo -n "[ 6] Restore original '$WRAPPER_ENVIRONMENT' PATH configuration... "
+# Restore original PATH configuration
+if [[ -f "$SCRIPT_DIR/piSpot.conf.bak" ]]; then
+    cp "$WRAPPER_ENVIRONMENT.piSpot.bak" "$WRAPPER_ENVIRONMENT"
+    rm -f "$WRAPPER_ENVIRONMENT.piSpot.bak"
+    echo "[\\033[32m✓\\033[0m]"
+    echo
+    read -p "Reboot now to apply changes? [y/N] " reboot_reply
+    if [[ "$reboot_reply" =~ ^[YyJj]$ ]]; then
+        read -p "Press ENTER to reboot..."
+        shutdown -r now
+    else
+        echo "Quitting uninstall - You need to reboot your system to apply changes!" >&2
+        exit 1
     fi
 else
-    echo "Pfad war nicht in /etc/environment enthalten."
+    echo "[\\033[31m!\\033[0m]"
+    echo "No '$WRAPPER_ENVIRONMENT' backup found. You need to fix this manually!" >&2
+    exit 1
 fi
+ENV_FILE="/etc/environment"
+
+exit 0
