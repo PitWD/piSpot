@@ -12,13 +12,29 @@
     # sudo wget -q -O GetDevSetup.sh https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/GetDevSetup.sh | bash
 
 # To wget files for ~/piSpot
-# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/dnsmasq.wrapper
 # https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/Install.sh
 # https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/Uninstall.sh
-# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/Spot-UP.sh
-# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/Spot-DOWN.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/Up.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/Down.sh
 # https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/piSpot.conf
 # https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/Config.sh
 # https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/State.sh
 # To wget files for ~/piSpot/wlan
-# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wlan/Select.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wlan/wlan_new.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wlan/wlan_del.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wlan/wlan_connect.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wlan/wlan_disconnect.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wlan/wlan_up.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wlan/wlan_down.sh
+# To wget files for ~/piSpot/gsm
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wwan/gsm_new.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wwan/gsm_del.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wwan/gsm_connect.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wwan/gsm_disconnect.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wwan/gsm_up.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wwan/gsm_down.sh
+# To wget files for ~/piSpot/wrapper
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wrapper/dnsmasq.wrapper
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wrapper/wrapper.install.sh
+# https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src/wrapper/wrapper.uninstall.sh
+
