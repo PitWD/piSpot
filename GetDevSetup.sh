@@ -49,7 +49,7 @@ GSM_FILES=(
 )
 # List of file names in REPO_URL/$wrapperdir to download
 WRAPPER_FILES=(
-    "dnsmasq_wrapper"
+    "dnsmasq.wrapper"
     "wrapper_install.sh"
     "wrapper_uninstall.sh"
 )
