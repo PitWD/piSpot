@@ -2,7 +2,7 @@
 
 clear
 echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
-echo "| \\033[1m p i S p o t   I n s t a l l a t i o n   S c r i p t \\033[0m |"
+printf "| \033[1m p i S p o t   I n s t a l l a t i o n   S c r i p t \033[0m |"
 echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
 echo
 
@@ -13,22 +13,28 @@ CONF_FILE="$SCRIPT_DIR/piSpot.conf"
 if [[ -f "$CONF_FILE" ]]; then
     source "$CONF_FILE"
 else
-    echo "[\\033[31m!\\033[0m]"
+    printf "[\033[31m!\033[0m]"
     echo "Config '$CONF_FILE' not found." >&2
     exit 1
 fi
-echo "[\\033[32m✓\\033[0m]"
+printf "[\033[32m✓\033[0m]"
 
 echo -n "[ 2] Check & create required variables... "
 # Check required variables for wrapper
 REQUIRED_VARS=( \
+    wifi_ifname \
+    wifi_autoconnect \
+    SSID \
+    PASSWORD \
     dhcp4_start \
     dhcp4_stop \
     dhcp4_leasetime \
     dns_port \
     ipv4_address \
     ipv4_dns \
+    ipv4_method \
     ipv6_dns \
+    ipv6_method \
     WRAPPER_SOURCE \
     WRAPPER_LOCATION \
     WRAPPER_TARGET \
@@ -42,41 +48,45 @@ for var in "${REQUIRED_VARS[@]}"; do
     fi
 done
 if [[ $MISSING -ne 0 ]]; then
-    echo "[\\033[31m!\\033[0m]"
+    printf "[\033[31m!\033[0m]"
     echo "Please check your $CONF_FILE file." >&2
     exit 1
 fi
-WRAPPER_DIR="$(dirname "$WRAPPER_LOCATION")" # Just the path of the wrapper
-echo "[\\033[32m✓\\033[0m]"
+printf "[\033[32m✓\033[0m]"
 
 echo -n "[ 3] Check for root privileges... "
 # Check for root privileges
 if [[ "$EUID" -ne 0 ]]; then
-    echo "[\\033[31m!\\033[0m]"
+    printf "[\033[31m!\033[0m]"
 	echo "Missing root privileges - use sudo...!" >&2
 	exit 1
 fi
-echo "[\\033[32m✓\\033[0m]"
+printf "[\033[32m✓\033[0m]"
 
 echo -n "[ 4] Check for wrapper template... "
 # Check if the wrapper source file exists
 if [[ ! -f "$WRAPPER_SOURCE" ]]; then
-    echo "[\\033[31m!\\033[0m]"
+    printf "[\033[31m!\033[0m]"
     echo "Wrapper source file '$WRAPPER_SOURCE' does not exist." >&2
     exit 1
 fi
-echo "[\\033[32m✓\\033[0m]"
+printf "[\033[32m✓\033[0m]"
 
+WRAPPER_DIR="$(dirname "$WRAPPER_LOCATION")" # Just the path of the wrapper destination
 echo -n "[ 5] Create wrapper directory '$WRAPPER_DIR'... "
 # Create directories if they do not exist
-mkdir -p "$(dirname "$WRAPPER_LOCATION")"
-echo "[\\033[32m✓\\033[0m]"
+mkdir -p "$WRAPPER_DIR" || {
+    printf "[\033[31m!\033[0m]"
+    echo "Failed to create wrapper directory '$WRAPPER_DIR'." >&2
+    exit 1
+}
+printf "[\033[32m✓\033[0m]"
 
 # Inject variables into a temporary wrapper script
 TMP_WRAPPER="$(mktemp)"
 echo -n "[ 6] Create temporary wrapper '$TMP_WRAPPER'... "
 cp "$WRAPPER_SOURCE" "$TMP_WRAPPER"
-echo "[\\033[32m✓\\033[0m]"
+printf "[\033[32m✓\033[0m]"
 echo -n "[ 7] Inject variables into temporary wrapper... "
 sed -i "s|__IPV4ADDRESS__|$ipv4_address|g" "$TMP_WRAPPER"
 sed -i "s|__IPV4DNS__|$ipv4_dns|g" "$TMP_WRAPPER"
@@ -86,13 +96,13 @@ sed -i "s|__DHCP4STOP__|$dhcp4_stop|g" "$TMP_WRAPPER"
 sed -i "s|__DHCP4LEASETIME__|$dhcp4_leasetime|g" "$TMP_WRAPPER"
 sed -i "s|__DNSPORT__|$dns_port|g" "$TMP_WRAPPER"
 sed -i "s|__WRAPPERTARGET__|$WRAPPER_TARGET|g" "$TMP_WRAPPER"
-echo "[\\033[32m✓\\033[0m]"
+printf "[\033[32m✓\033[0m]"
 
 echo -n "[ 8] Check on file action needs for wrapping... "
 # Install or update the wrapper script
 if [[ -f "$WRAPPER_LOCATION" ]]; then
     if ! cmp -s "$TMP_WRAPPER" "$WRAPPER_LOCATION"; then
-        echo "[\\033[33m!\\033[0m]"
+        printf "[\033[33m!\033[0m]"
         echo "Differences detected between local wrapper and installed wrapper."
         read -p "Update Wrapper? [y/N] " reply
         if [[ "$reply" =~ ^[JjYy]$ ]]; then
@@ -103,13 +113,13 @@ if [[ -f "$WRAPPER_LOCATION" ]]; then
             echo "Update cancelled." >&2
         fi
     else
-        echo "[\\033[32m✓\\033[0m]"
+        printf "[\033[32m✓\033[0m]"
         echo "Wrapper is up to date."
     fi
 else
     cp "$TMP_WRAPPER" "$WRAPPER_LOCATION"
     chmod +x "$WRAPPER_LOCATION"
-    echo "[\\033[32m✓\\033[0m]"
+    printf "[\033[32m✓\033[0m]"
     echo "Wrapper installed: '$WRAPPER_LOCATION'."
 fi
 echo
@@ -118,23 +128,23 @@ rm -f "$TMP_WRAPPER"
 echo -n "[ 9] Check on PATH action needs for wrapping... "
 # actualize PATH variable
 if grep -q "$WRAPPER_DIR" "$WRAPPER_ENVIRONMENT"; then
-    echo "[\\033[32m✓\\033[0m]"
+    printf "[\033[32m✓\033[0m]"
     echo "PATH '$WRAPPER_DIR' already exist in '$WRAPPER_ENVIRONMENT'."
 else
-    echo "[\\033[33m!\\033[0m]"
+    printf "[\033[33m!\033[0m]"
     echo -n "[10] Actualizing PATH '$WRAPPER_DIR' in '$WRAPPER_ENVIRONMENT'..."
     # Backup the original environment file - ONCE!
     if [[ ! -f "$WRAPPER_ENVIRONMENT.piSpot.bak" ]]; then
-        echo "[\\033[33m!\\033[0m]"
+        printf "[\033[33m!\033[0m]"
         echo -n "[10] Creating backup of '$WRAPPER_ENVIRONMENT' as '$WRAPPER_ENVIRONMENT.piSpot.bak'."
         cp "$WRAPPER_ENVIRONMENT" "$WRAPPER_ENVIRONMENT.piSpot.bak"
-        echo "[\\033[32m✓\\033[0m]"
+        printf "[\033[32m✓\033[0m]"
     fi
     echo -n "[11] Actualizing PATH '$WRAPPER_DIR' in '$WRAPPER_ENVIRONMENT'... "
     sed -i "s|^PATH=\"\(.*\)\"|PATH=\"$WRAPPER_DIR:\1\"|" "$WRAPPER_ENVIRONMENT" || \
     echo "PATH=\"$WRAPPER_DIR:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"" \
     >> "$WRAPPER_ENVIRONMENT"
-    echo "[\\033[32m✓\\033[0m]"
+    printf "[\033[32m✓\033[0m]"
     echo "PATH '$WRAPPER_DIR' in '$WRAPPER_ENVIRONMENT' actualized. Reboot needed!"
     echo
     read -p "Reboot now to apply changes? [y/N] " reboot_reply
@@ -144,7 +154,7 @@ else
         shutdown -r now
     else
         echo "Quitting setup - You need to reboot your system to apply changes!" >&2
-        echo "After reboot you need to run this installation script once again to finish the piSpot installation!"
+        echo "After reboot you need to run this installation script once again to finish the piSpot installation!" >&2
         exit 1
     fi
 fi
@@ -156,16 +166,16 @@ echo
 echo -n "[12] Disconnect and remove '$SSID' - if exist... "
 nmcli connection down "$SSID" 2>/dev/null || true
 nmcli connection delete "$SSID" 2>/dev/null || true
-echo "[\\033[32m✓\\033[0m]"
+printf "[\033[32m✓\033[0m]"
 echo
 echo -n "[13] Creating new '$SSID' AP connection... "
 nmcli connection add type wifi \
-    ifname "$IFACE" \
+    ifname "$wifi_ifname" \
     con-name "$SSID" \
     autoconnect "$wifi_autoconnect" \
     ssid "$SSID" \
     mode ap
-echo "[\\033[32m✓\\033[0m]"
+printf "[\033[32m✓\033[0m]"
 echo
 
 # Ask for PASSWORD if PASSWORD is "piSpot1234" or len < 8
@@ -176,7 +186,7 @@ if [[ "$PASSWORD" == "piSpot1234" || ${#PASSWORD} -lt 8 ]]; then
 fi
 # Check if PASSWORD has at least 8 characters
 if [[ ${#PASSWORD} -lt 8 ]]; then
-    echo "[\\033[31m!\\033[0m]"
+    printf "[\033[31m!\033[0m]"
     echo "Password must be at least 8 characters long." >&2
     echo "Please run this script again and enter a valid password." >&2
     exit 1
@@ -194,17 +204,20 @@ nmcli connection modify "$SSID" \
     wifi-sec.proto rsn \
     wifi-sec.pairwise ccmp \
     wifi-sec.group ccmp
-echo "[\\033[32m✓\\033[0m]"
+printf "[\033[32m✓\033[0m]"
 echo
 echo -n "[15] Activating Access Point '$SSID'... "
 nmcli connection up "$SSID"
-echo "[\\033[32m✓\\033[0m]"
-echo
+printf "[\033[32m✓\033[0m]"
 
-if [[ "$IPV4method" == "shared" ]]; then
-	echo "\\033[1m[\\033[32m✓\\033[0m\\033[1m]    p i S p o t   i n s t a l l a t i o n   f i n i s h e d.\\033[0m"
+
+if [[ "$ipv4_method" == "shared" ]]; then
+	printf "\033[1m[\033[32m✓\033[0m\033[1m]    p i S p o t   i n s t a l l a t i o n   f i n i s h e d.\033[0m"
 	exit 0
 fi
+
+
+
 
 # The Following is just for setting up if "ip4.method != shared"
 # Some issues... especially on Raspberry Zero... Future stuff...
@@ -249,7 +262,7 @@ iptables -A INPUT -i "$UPSTREAM" -p tcp --dport 22 -j ACCEPT
 # Alles andere aus dem Internet blockieren
 iptables -A INPUT -i "$UPSTREAM" -j DROP
 
-echo "[✓] '$IPV4method' piSpot Installation abgeschlossen"
+echo "[✓] '$ipv4_method' piSpot Installation abgeschlossen"
 
 exit 0
 

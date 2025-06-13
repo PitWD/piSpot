@@ -24,7 +24,6 @@
 # nmcli is calling dnsmasq with the following (almost hard-coded) parameters:
 # sudo ps -ef | grep [N]etworkManager
 # gives us...:
-
     # nobody       702     549  0 15:10 ?        00:00:00
         #/usr/sbin/dnsmasq \
             #--conf-file=/dev/null \
