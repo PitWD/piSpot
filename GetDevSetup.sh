@@ -110,10 +110,11 @@ for file in "${WRAPPER_FILES[@]}"; do
 done
 
 # Goto the target directory
-cd "$TARGET_DIR" || \
+if ! cd "$TARGET_DIR"; then
     printf "Failed to change directory to \033[31m$TARGET_DIR.\033[0m\n \
     Downloading was not successful - probably...¯\\_(ツ)_/¯\n \
-    \033[1mPlease check the reasons!\033[0m\n" \
-    >&2 && exit 1
+    \033[1mPlease check the reasons!\033[0m\n" >&2
+    exit 1
+fi
 
 printf "All files have been downloaded to \033[32m$TARGET_DIR\033[0m.\n"
