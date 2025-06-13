@@ -57,47 +57,56 @@ WRAPPER_FILES=(
 clear
 
 # Create target directories if they do not exist
-mkdir -p "$TARGET_DIR" "$TARGET_DIR/$wlandir" "$TARGET_DIR/$gsmdir" "$TARGET_DIR/$wraperdir" || \
+if ! mkdir -p "$TARGET_DIR" "$TARGET_DIR/$wlandir" "$TARGET_DIR/$gsmdir" "$TARGET_DIR/$wrapperdir"; then
     printf "Failed to create one or more directories \033[31m \
         \n\t$TARGET_DIR, \
         \n\t$TARGET_DIR/$wlandir, \
         \n\t$TARGET_DIR/$gsmdir, \
         \n\t$TARGET_DIR/$wrapperdir \
         \033[0m\n \
-        \033[1mPlease check the reason!\033[0m" \
-        >&2 && exit 1
-printf "Successful created or existing directories \
-    \n\t$TARGET_DIR, \
-    \n\t$TARGET_DIR/$wlandir, \
-    \n\t$TARGET_DIR/$gsmdir, \
-    \n\t$TARGET_DIR/$wrapperdir \
-    \n"
-
+        \033[1mPlease check the reason!\033[0m" >&2
+        exit 1
+else
+    printf "Successful created or existing directories \
+        \n\t$TARGET_DIR, \
+        \n\t$TARGET_DIR/$wlandir, \
+        \n\t$TARGET_DIR/$gsmdir, \
+        \n\t$TARGET_DIR/$wrapperdir \
+        \n"
+fi
 echo "Start downloading piSpot setup files (development state) to $TARGET_DIR."
 
 # Download loop for the root files
 for file in "${ROOT_FILES[@]}"; do
-    wget -q -O "$TARGET_DIR/$file" "$REPO_URL/$file" || \
-        printf "\033[31mFailed to download $file from $REPO_URL/$file\033[0m"
-    echo "$file downloaded successfully."
+    if ! wget -q -O "$TARGET_DIR/$file" "$REPO_URL/$file"; then
+        printf "\033[31mFailed to download $file from $REPO_URL/$file\033[0m\n"
+    else
+        echo "$file downloaded successfully."
+    fi
 done
 # Download loop for the wlan files
 for file in "${WLAN_FILES[@]}"; do
-    wget -q -O "$WLAN_DIR/$file" "$REPO_URL/$wlandir/$file" || \
+    if ! wget -q -O "$TARGET_DIR/$wlandir/$file" "$REPO_URL/$wlandir/$file"; then
         printf "\033[31mFailed to download $file from $REPO_URL/$wlandir/$file\033[0m"
-    echo "$file downloaded successfully."
+    else
+        echo "$file downloaded successfully."
+    fi
 done
 # Download loop for the gsm files
 for file in "${GSM_FILES[@]}"; do
-    wget -q -O "$GSM_DIR/$file" "$REPO_URL/$gsmdir/$file" || \
+    if ! wget -q -O "$TARGET_DIR/$gsmdir/$file" "$REPO_URL/$gsmdir/$file"; then
         printf "\033[31mFailed to download $file from $REPO_URL/$gsmdir/$file\033[0m"
-    echo "$file downloaded successfully."
+    else
+        echo "$file downloaded successfully."
+    fi
 done
 # Download loop for the wrapper files
 for file in "${WRAPPER_FILES[@]}"; do
-    wget -q -O "$WRAPPER_DIR/$file" "$REPO_URL/$wrapperdir/$file" || \
+    if ! wget -q -O "$TARGET_DIR/$wrapperdir/$file" "$REPO_URL/$wrapperdir/$file"; then
         printf "\033[31mFailed to download $file from $REPO_URL/$wrapperdir/$file\033[0m"
-    echo "$file downloaded successfully."
+    else
+        echo "$file downloaded successfully."
+    fi
 done
 
 # Goto the target directory
