@@ -1,6 +1,280 @@
 #!/bin/bash
 
+###  A P P  D E F I N I T I O N S  ###
+APP_NAME="piSpot"
+APP_VERSION="0.0.1"
+APP_STATE="dev" # alpha, beta, stable, dev
+declare -i actionLen=2  #  1,2,3 => [1],[ 1],[  1]
+TARGET_DIR=""
+REPO_URL=""
+###  A P P  D E F I N I T I O N S  ###
+
+
+###  G L O B A L  -  Variables  ###
+declare -a CURSOR_Y
+declare -a CURSOR_X
+declare -i TERM_X=80
+declare -i TERM_Y=24
+declare -i errCnt=0
+declare -i fileCNT=0
+declare -i dirCNT=0
+declare -i linesCNT=7 # leading for final, 2-4 for the final result, trailing for final, prompt
+declare -i finalCNT=7 # leading for final, 2-4 for the final result, trailing for final, prompt
+declare -i action=1
+###  G L O B A L  -  Variables  ###
+
+
+###  E S C  -  constants  ###
+esc="\033"
+csi="${esc}["
+escBold="${csi}1m"
+escItalic="${csi}3m"
+escUnderline="${csi}4m"
+escReverse="${csi}7m"
+escHidden="${csi}8m"
+escStrikethrough="${csi}9m"
+escResetBold="${csi}21m"
+escResetItalic="${csi}23m"
+escResetUnderline="${csi}24m"
+escResetReverse="${csi}27m"
+escResetHidden="${csi}28m"
+escResetStrikethrough="${csi}29m"
+escFaint="${csi}2m"
+escReset="${csi}0m"
+escGreen="${csi}32m"
+escRed="${csi}31m"
+escYellow="${csi}33m"
+escBlue="${csi}34m"
+escCyan="${csi}36m"
+escMagenta="${csi}35m"
+escWhite="${csi}37m"
+escBlack="${csi}30m"
+escGray="${csi}90m"
+escGreenBold="${escGreen}${escBold}"
+escRedBold="${escRed}${escBold}"
+escYellowBold="${escYellow}${escBold}"
+escBlueBold="${escBlue}${escBold}"
+escCyanBold="${escCyan}${escBold}"
+escMagentaBold="${escMagenta}${escBold}"
+escWhiteBold="${escWhite}${escBold}"
+escBlackBold="${escBlack}${escBold}"
+escGrayBold="${escGray}${escBold}"
+escOK="$escGreenBold✔$escReset"
+escNOK="$escRedBold✘$escReset"
+escWARN="$escYellowBold☡$escReset"
+###  E S C  -  constants  ###
+
+
+###  F u n c t i o n s  - generic  ###
+SaveCursor() {
+    local idx="$1"
+    local prt="$2"
+    local pos
+    # Request cursor position from terminal
+    exec < /dev/tty
+    printf "${csi}6n"
+    # Read response: ESC [ row ; col R
+    IFS=';' read -sdR -r pos
+    pos="${pos#*[}" # Remove ESC[
+    CURSOR_Y[$idx]="${pos%%;*}"      # Row
+    CURSOR_X[$idx]="${pos##*;}"      # Column
+    exec <&-
+    if [[ -n "$prt" ]]; then
+        printf "$prt"
+    fi
+}
+RestoreCursor() {
+    local idx="$1"
+    # Set cursor position
+    printf "${csi}%d;%dH" "${CURSOR_Y[$idx]}" "${CURSOR_X[$idx]}"
+}
+SetCursor() {
+    local x="$1"
+    local y="$2"
+    # Set cursor position
+    printf "${csi}%d;%dH" "${$y}" "${$x}"
+}
+UpCursor() {
+    local -i lines="$1"
+    # Move cursor up
+    printf "${csi}%dA" "$lines"
+}
+DownCursor() {
+    local -i lines="$1"
+    # Move cursor down
+    printf "${csi}%dB" "$lines"
+}
+LeftCursor() {
+    local -i cols="$1"
+    # Move cursor left
+    printf "${csi}%dD" "$cols"
+}
+RightCursor() {
+    local -i cols="$1"
+    # Move cursor right
+    printf "${csi}%dC" "$cols"
+}
+GetTermSize() {
+    # Get terminal size
+    if [[ -t 1 ]]; then
+        read -r TERM_Y TERM_X < <(stty size)
+    else
+        TERM_Y=24
+        TERM_X=80
+    fi
+}
+printOK() {
+    printf "[$escOK]"
+}
+printNOK() {
+    printf "[$escNOK]"
+}
+printWARN() {
+    printf "[$escWARN]"
+}
+printCNT() {
+    local -i n="$1"   # Value to print
+    local -i len="$2"  # Fixed Len for the value e.g. 3 for "00n", "  n"
+    # Print a number with leading c or spaces
+    if [[ "$len" -eq 0 ]]; then
+        len=$actionLen
+    fi
+    if [[ "$n" -eq 0 ]]; then
+        n=$action
+        ((action += 1))
+    fi
+    local retVal="$(strFixNum "$n" "$len")"
+    printf "[$escCyanBold%s$escReset]" "$retVal"
+}
+strFixNum() {
+    local -i n="$1"   # Value
+    local -i cnt="$2" # Fixed Len for the value e.g. 3 for "00n", "  n"
+    local c="$3"      # Character to use for padding
+    local out
+    local -i len=${#n}
+    [[ -z "$c" ]] && c=" "
+    if [[ $n -lt 0 ]]; then
+        # remove leading minus sign
+        n="${n#-}"
+        out="-"
+    fi
+    for ((i = len; i < cnt; i++)); do
+        out+="$c"
+    done
+    out+="$n"
+    printf "%s" "$out"
+}
+DelLines() {
+    local -i lines="$1"
+    # Delete lines from terminal
+    if [[ $lines -gt 0 ]]; then
+        printf "${csi}%dM" "$lines"
+    fi
+}
+###  F u n c t i o n s  - specific  ###
+DownloadFiles() {
+    # Function to loop download
+    local target="$1"
+    local url="$2"
+    local filesLST=("${!3}")
+    local -i locCnt=0
+    local -i cnt=${#filesLST[@]}
+    local -i fold=0
+    printf " "
+    printCNT 
+    printf " Wget$escBlueBold $cnt ${escReset}files for $target/... "
+    SaveCursor 1 "\n"
+    for file in "${filesLST[@]}"; do
+        if [[ $fold -eq 1 ]]; then
+            UpCursor 1
+            DelLines 1
+        fi
+        if ! wget -q -O "$target/$file" "$url/$file"; then
+            printf "\t$escRed$file$escReset\n"
+            # Remove error file if empty
+            if [[ -f "$target/$file" && ! -s "$target/$file" ]]; then
+                rm -f "$target/$file"
+            fi
+            locCnt=$((locCnt + 1))
+        else
+            printf "\t$file\n"
+        fi
+        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
+            fold=1
+        fi
+    done
+    if [[ $fold -eq 1 ]]; then
+        UpCursor 1
+        DelLines 1
+    fi
+    SaveCursor 2
+    RestoreCursor 1
+    if [[ $locCnt -gt 0 ]]; then
+        if [[ $locCnt -eq ${#filesLST[@]} ]]; then
+            printNOK
+        else
+            printWARN
+        fi
+    else
+        printOK
+    fi
+    errCnt=$((errCnt + locCnt))
+    RestoreCursor 2
+    echo
+    return $locCnt
+}
+makeDirs(){
+    #Function to loop the to create directories
+    local dirsList=("${!1}")
+    local -i locCnt=0
+    # Elements in dirs array
+    local cnt=${#dirsList[@]}
+    local -i fold=0
+    printf " "
+    printCNT
+    printf " Creating & Checking$escBlueBold $cnt ${escReset}Directories... "
+    SaveCursor 1 "\n"
+    for dir in "${dirsList[@]}"; do
+        if [[ $fold -eq 1 ]]; then
+            UpCursor 1
+            DelLines 1
+        fi
+        if ! mkdir -p "$dir"; then
+            printf "\t$escRed$dir$escReset\n"
+            locCnt=$((locCnt + 1))
+        else
+            printf "\t$dir\n"
+        fi
+        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
+            fold=1
+        fi
+        sleep 0.25 
+    done
+    if [[ $fold -eq 1 ]]; then
+        UpCursor 1
+        DelLines 1
+    fi
+    SaveCursor 2 "\n"
+    RestoreCursor 1
+    if [[ $locCnt -gt 0 ]]; then
+        if [[ $locCnt -eq ${#dirsList[@]} ]]; then
+            printNOK
+        else
+            printWARN
+        fi
+    else
+        printOK
+    fi
+    RestoreCursor 2
+    echo
+    return $locCnt
+}
+###  F u n c t i o n s  ###
+
+
+###  M a i n  ###
 clear
+GetTermSize
 echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
 printf "| \033[1m p i S p o t   I n s t a l l a t i o n   S c r i p t \033[0m |"
 echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - -"

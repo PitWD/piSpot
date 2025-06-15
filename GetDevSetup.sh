@@ -132,7 +132,7 @@ escGrayBold="${escGray}${escBold}"
 escOK="$escGreenBold✔$escReset"
 escNOK="$escRedBold✘$escReset"
 escWARN="$escYellowBold☡$escReset"
-###  e s c  -  constants  ###
+###  E S C  -  constants  ###
 
 
 ###  F u n c t i o n s  - generic  ###
@@ -206,34 +206,34 @@ printCNT() {
     local -i n="$1"   # Value to print
     local -i len="$2"  # Fixed Len for the value e.g. 3 for "00n", "  n"
     # Print a number with leading c or spaces
-    if [[ -z "$len" ]]; then
+    if [[ "$len" -eq 0 ]]; then
         len=$actionLen
     fi
-    strFixNum "$n" "$len"
-    local -i retVal=$?
-    printf "[$escCyanBold${retVal}$escReset]"
+    if [[ "$n" -eq 0 ]]; then
+        n=$action
+        ((action += 1))
+    fi
+    local retVal="$(strFixNum "$n" "$len")"
+    printf "[$escCyanBold%s$escReset]" "$retVal"
 }
 strFixNum() {
     local -i n="$1"   # Value
-    local -i len="$2" # Fixed Len for the value e.g. 3 for "00n", "  n"
+    local -i cnt="$2" # Fixed Len for the value e.g. 3 for "00n", "  n"
     local c="$3"      # Character to use for padding
-    [[ -z "$c" ]] && c=" "
     local out
+    local -i len=${#n}
+    [[ -z "$c" ]] && c=" "
     if [[ $n -lt 0 ]]; then
-        # negative number, insert leading zeros
-        out=$(printf "%0${len}d" $(( -n )))
-        out="-$out"
-        # alternatively, replace leading zeros with c
-        [[ "$c" == "0" ]] && out="${out:1}" || out="${out:1}" | tr "0" "$c"
-        [[ "$c" != "0" ]] && out="-"$(echo "${out:1}" | tr "0" "$c")
-        #printf "%s" "$out"
-    else
-        # printf "%${len}d" "$n" | sed "s/ /$c/g"
-        out=$(printf "%${len}d" "$n" | sed "s/ /$c/g")
+        # remove leading minus sign
+        n="${n#-}"
+        out="-"
     fi
-    return $out
+    for ((i = len; i < cnt; i++)); do
+        out+="$c"
+    done
+    out+="$n"
+    printf "%s" "$out"
 }
-###  F u n c t i o n s  - specific  ###
 DelLines() {
     local -i lines="$1"
     # Delete lines from terminal
@@ -241,6 +241,7 @@ DelLines() {
         printf "${csi}%dM" "$lines"
     fi
 }
+###  F u n c t i o n s  - specific  ###
 DownloadFiles() {
     # Function to loop download
     local target="$1"
@@ -250,8 +251,7 @@ DownloadFiles() {
     local -i cnt=${#filesLST[@]}
     local -i fold=0
     printf " "
-    printCNT "$action"
-    action=$((action + 1))
+    printCNT 
     printf " Wget$escBlueBold $cnt ${escReset}files for $target/... "
     SaveCursor 1 "\n"
     for file in "${filesLST[@]}"; do
@@ -301,8 +301,7 @@ makeDirs(){
     local cnt=${#dirsList[@]}
     local -i fold=0
     printf " "
-    printCNT "$action"
-    action=$((action + 1))
+    printCNT
     printf " Creating & Checking$escBlueBold $cnt ${escReset}Directories... "
     SaveCursor 1 "\n"
     for dir in "${dirsList[@]}"; do
