@@ -83,12 +83,13 @@ wrapper_FILES=(
 ###  G L O B A L  -  Variables  ###
 declare -a CURSOR_Y
 declare -a CURSOR_X
-declare -i errCnt=0
 declare -i TERM_X=80
 declare -i TERM_Y=24
+declare -i errCnt=0
 declare -i fileCNT=0
 declare -i dirCNT=0
 declare -i linesCNT=7 # leading for final, 2-4 for the final result, trailing for final, prompt
+declare -i finalCNT=7 # leading for final, 2-4 for the final result, trailing for final, prompt
 declare -i action=1
 ###  G L O B A L  -  Variables  ###
 
@@ -247,6 +248,7 @@ DownloadFiles() {
     local filesLST=("${!3}")
     local -i locCnt=0
     local -i cnt=${#filesLST[@]}
+    local -i fold=0
     printf " "
     printCNT "$action"
     action=$((action + 1))
@@ -254,6 +256,10 @@ DownloadFiles() {
     SaveCursor 1 "\n"
     for file in "${filesLST[@]}"; do
         if ! wget -q -O "$target/$file" "$url/$file"; then
+            if [[ $fold -eq 1 ]]; then
+                UpCursor 1
+                DelLines 1
+            fi
             printf "\t$escRed$file$escReset\n"
             # Remove error file if empty
             if [[ -f "$target/$file" && ! -s "$target/$file" ]]; then
@@ -263,7 +269,14 @@ DownloadFiles() {
         else
             printf "\t$file\n"
         fi
+        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
+            fold=1
+        fi
     done
+    if [[ $fold -eq 1 ]]; then
+        UpCursor 1
+        DelLines 1
+    fi
     SaveCursor 2
     RestoreCursor 1
     if [[ $locCnt -gt 0 ]]; then
@@ -332,11 +345,10 @@ for lst in "${FILES_LISTS[@]}"; do
     fileCNT=$((fileCNT + arrLength))
     ((linesCNT += 2)) # header line and trailing line
 done
-#((linesCNT -= 1))   # remove last download trailing line
 
 # Header
 printf " [${escCyanBold}i$escReset]$escBlueBold $fileCNT ${escReset}files$escItalic($APP_STATE)$escReset"
-printf " in $escBlueBold$dirCNT$escReset folders for $escBold$escItalic$APP_NAME$escReset... "
+printf " in $escBlueBold$dirCNT$escReset folders for $escBold$escItalic$APP_NAME$escReset $APP_VERSION... "
 SaveCursor 0 "\n\n"
 ((linesCNT += 3)) # leading line, header line, and trailing line
 
