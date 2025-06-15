@@ -255,11 +255,11 @@ DownloadFiles() {
     printf " Wget$escBlueBold $cnt ${escReset}files for $target/... "
     SaveCursor 1 "\n"
     for file in "${filesLST[@]}"; do
+        if [[ $fold -eq 1 ]]; then
+            UpCursor 1
+            DelLines 1
+        fi
         if ! wget -q -O "$target/$file" "$url/$file"; then
-            if [[ $fold -eq 1 ]]; then
-                UpCursor 1
-                DelLines 1
-            fi
             printf "\t$escRed$file$escReset\n"
             # Remove error file if empty
             if [[ -f "$target/$file" && ! -s "$target/$file" ]]; then
@@ -295,28 +295,40 @@ DownloadFiles() {
 }
 makeDirs(){
     #Function to loop the to create directories
-    local dirs=("${!1}")
+    local dirsList=("${!1}")
     local -i locCnt=0
     # Elements in dirs array
-    local cnt=${#dirs[@]}
+    local cnt=${#dirsList[@]}
+    local -i fold=0
     printf " "
     printCNT "$action"
     action=$((action + 1))
     printf " Creating & Checking$escBlueBold $cnt ${escReset}Directories... "
     SaveCursor 1 "\n"
-    for dir in "${dirs[@]}"; do
+    for dir in "${dirsList[@]}"; do
+        if [[ $fold -eq 1 ]]; then
+            UpCursor 1
+            DelLines 1
+        fi
         if ! mkdir -p "$dir"; then
             printf "\t$escRed$dir$escReset\n"
             locCnt=$((locCnt + 1))
         else
             printf "\t$dir\n"
         fi
+        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
+            fold=1
+        fi
         sleep 0.25 
     done
+    if [[ $fold -eq 1 ]]; then
+        UpCursor 1
+        DelLines 1
+    fi
     SaveCursor 2 "\n"
     RestoreCursor 1
     if [[ $locCnt -gt 0 ]]; then
-        if [[ $locCnt -eq ${#dirs[@]} ]]; then
+        if [[ $locCnt -eq ${#dirsList[@]} ]]; then
             printNOK
         else
             printWARN
