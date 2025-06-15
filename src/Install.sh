@@ -216,13 +216,14 @@ if [[ "$ipv4_method" == "shared" ]]; then
 	exit 0
 fi
 
-
+exit 1
 
 
 # The Following is just for setting up if "ip4.method != shared"
 # Some issues... especially on Raspberry Zero... Future stuff...
 # DO NOT USE/TEST THIS YET! Many Variable Names are outdated!
 
+: <<'OLD_DONT_USE'
 # Upstream-Interface ermitteln
 for TARGET_IP in 8.8.8.8 1.1.1.1; do
     UPSTREAM=$(ip route get "$TARGET_IP" 2>/dev/null | awk '{print $5; exit}')
@@ -348,4 +349,4 @@ else
 fi
 
 rm -f "$TMP_WRAPPER"
-
+OLD_DONT_USE
