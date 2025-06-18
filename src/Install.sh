@@ -314,14 +314,14 @@ downloadFiles() {
     local -i cnt=${#filesLST[@]}
     local -i fold=0
     printAction
-    printf "Wget$escBlueBold $cnt ${escReset}files for $target/... "
+    printf "Curl$escBlueBold $cnt ${escReset}files for $target/... "
     SaveCursor 1 "\n"
     for file in "${filesLST[@]}"; do
         if [[ $fold -eq 1 ]]; then
             UpCursor 1
             delLines 1
         fi
-        if ! wget -q -O "$target/$file" "$url/$file"; then
+        if ! curl -s -o "$target/$file" "$url/$file"; then
             printf "\t$escRed$file$escReset\n"
             # Remove error file if empty
             if [[ -f "$target/$file" && ! -s "$target/$file" ]]; then
@@ -330,6 +330,8 @@ downloadFiles() {
             locCnt=$((locCnt + 1))
         else
             printf "\t$file\n"
+            # If file ends with ".sh", make it executable
+            [[ "$file" == *.sh ]] && chmod +x "$target/$file" 2>/dev/null || true
         fi
         if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
             fold=1

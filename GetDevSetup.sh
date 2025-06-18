@@ -167,7 +167,7 @@ SaveCursor() {
     pos="${pos#*[}" # Remove ESC[
     CURSOR_Y[$idx]="${pos%%;*}"      # Row
     CURSOR_X[$idx]="${pos##*;}"      # Column
-    exec <&-
+    #exec <&-
     if [[ -n "$prt" ]]; then
         printf "$prt"
     fi
@@ -370,31 +370,31 @@ makeDirs(){
 ###  F u n c t i o n s  - just because the are part of lib  ###
 getConfigFile(){
     printAction
-    printf "Check and get expected $APP_NAME.conf configuration file... "
+    printf "Check & Get '$escBold$CONF_PRT$escReset' file... "
     if [[ -f "$CONF_FILE" ]]; then
         source "$CONF_FILE"
     else
         printNOK
-        printf "\n Config '$CONF_PRT' not found.\n\t" >&2
+        printf "\n\tConfig '$CONF_PRT' not found.\n\t" >&2
         printCheckReasonExit
     fi
     printOK
     echo    
 }
-checkConfigFile(){
+testConfigFile(){
     # Check if all required variables are set
     local -i MISSING=0
     printAction
-    printf "Check & create required variables... "
+    printf "${escBold}Test variables$escReset in '$CONF_PRT'... "
     for var in "${REQUIRED_VARS[@]}"; do
         if [[ -z "${!var}" ]]; then
-            echo "Missing Variable(s): $var" >&2
+            printf "\n\tMissing Variable(s): $var" >&2
             MISSING=1
         fi
     done
     if [[ $MISSING -ne 0 ]]; then
         printNOK
-        echo "\n Can't proceed with missing variable(s) in $CONF_PRT file.\n\t" >&2
+        printf "\n\tMissing var(s) in '$CONF_PRT' file.\n\t" >&2
         printCheckReasonExit
     fi
     printOK
@@ -402,11 +402,11 @@ checkConfigFile(){
 }
 checkRoot(){
     printAction
-    echo -n "Check for root privileges... "
+    printf "Check for$escBold root$escReset privileges... "
     # Check for root privileges
     if [[ "$EUID" -ne 0 ]]; then
         printNOK
-        printf "\n${escBold} Missing root privileges - restart script with sudo...!$escReset\n\n" >&2
+        printf "\n${escBold} Missing root privileges - start script with sudo...!$escReset\n\n" >&2
         exit 1
     fi
     printOK
@@ -415,13 +415,13 @@ checkRoot(){
 injectVARS(){
     local destFile="$1"
     printAction
-    printf "Inject variables into '$destFile'... "
+    printf "${escBold}Inject variables$escReset into '$destFile'... "
     for i in "${!INJECT_VARS[@]}"; do
-        source="${INJECT_VARS[$i]}"
+        src_var="${INJECT_VARS[$i]}"
         dest_placeholder="${INJECT_DEST[$i]}"
-        if [[ -z "${!source}" ]]; then
+        if [[ -z "${!src_var}" ]]; then
             printNOK
-            echo "\n Variable '$source' does not exist.\n\t" >&2
+            echo "\n Variable '$src_var' does not exist.\n\t" >&2
             printCheckReasonExit
         fi
         # Check if placeholder exists in the wrapper script
@@ -430,7 +430,7 @@ injectVARS(){
             echo "\n Placeholder '$dest_placeholder' not found in '$destFile'.\n\t" >&2
             printCheckReasonExit
         fi
-        sed -i "s|$dest_placeholder|${!var_name}|g" "$destFile"
+        sed -i "s|${dest_placeholder}|${!src_var}|g" "$destFile"
     done
     printOK
     echo
