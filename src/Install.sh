@@ -4,9 +4,62 @@
 APP_NAME="piSpot"
 APP_VERSION="0.0.1"
 APP_STATE="dev" # alpha, beta, stable, dev
+# Get dir of script and set expected app.conf
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONF_FILE="$SCRIPT_DIR/$APP_NAME.conf"
+CONF_PRT="$CONF_FILE"  # For printing with ~
+
+# If CONF_PRT starts with /home/<user>/, replace with ~
+if [[ "$CONF_PRT" =~ ^/home/([^/]+)/ ]]; then
+    CONF_PRT="~/${CONF_PRT#"/home/${BASH_REMATCH[1]}/"}"
+fi
+
 declare -i actionLen=2  #  1,2,3 => [1],[ 1],[  1]
 TARGET_DIR=""
 REPO_URL=""
+
+# List of required variables in APP_NAME.conf
+REQUIRED_VARS=(
+    "wifi_ifname"
+    "wifi_autoconnect"
+    "SSID"
+    "PASSWORD"
+    "dhcp4_start"
+    "dhcp4_stop"
+    "dhcp4_leasetime"
+    "dns_port"
+    "ipv4_address"
+    "ipv4_dns"
+    "ipv4_method"
+    "ipv6_dns"
+    "ipv6_method"
+    "WRAPPER_SOURCE"
+    "WRAPPER_LOCATION"
+    "WRAPPER_TARGET"
+    "WRAPPER_SYSTEMD"
+    "WRAPPER_CONF"
+)
+# List of variables to inject into the wrapper script
+INJECT_VARS=(
+    "ipv4_address"
+    "ipv4_dns"
+    "ipv6_dns"
+    "dhcp4_start"
+    "dhcp4_stop"
+    "dhcp4_leasetime"
+    "dns_port"
+    "WRAPPER_TARGET"
+)
+INJECT_DEST=(
+    "__IPV4ADDRESS__"
+    "__IPV4DNS__"
+    "__IPV6DNS__"
+    "__DHCP4START__"
+    "__DHCP4STOP__"
+    "__DHCP4LEASETIME__"
+    "__DNSPORT__"
+    "__WRAPPERTARGET__"
+)
 ###  A P P  D E F I N I T I O N S  ###
 
 
@@ -18,8 +71,8 @@ declare -i TERM_Y=24
 declare -i errCnt=0
 declare -i fileCNT=0
 declare -i dirCNT=0
-declare -i linesCNT=7 # leading for final, 2-4 for the final result, trailing for final, prompt
-declare -i finalCNT=7 # leading for final, 2-4 for the final result, trailing for final, prompt
+declare -i linesCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
+declare -i finalCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
 declare -i action=1
 ###  G L O B A L  -  Variables  ###
 
@@ -30,10 +83,13 @@ csi="${esc}["
 escBold="${csi}1m"
 escItalic="${csi}3m"
 escUnderline="${csi}4m"
+escDblUnderline="${csi}21m"
 escReverse="${csi}7m"
 escHidden="${csi}8m"
 escStrikethrough="${csi}9m"
-escResetBold="${csi}21m"
+escBoldItalic="${csi}1;3m"
+escResetBold="${csi}22m"
+escResetFaint="${csi}22m"
 escResetItalic="${csi}23m"
 escResetUnderline="${csi}24m"
 escResetReverse="${csi}27m"
@@ -78,7 +134,7 @@ SaveCursor() {
     pos="${pos#*[}" # Remove ESC[
     CURSOR_Y[$idx]="${pos%%;*}"      # Row
     CURSOR_X[$idx]="${pos##*;}"      # Column
-    exec <&-
+    #exec <&-
     if [[ -n "$prt" ]]; then
         printf "$prt"
     fi
@@ -132,19 +188,28 @@ printNOK() {
 printWARN() {
     printf "[$escWARN]"
 }
+printCheckReasonExit(){
+    printf "${escBold}Please check the reason(s)!$escReset\n\n" >&2
+    exit 1    
+}
+printAction(){
+    printCNT $action $actionLen " " " "
+    ((action += 1))
+}
 printCNT() {
-    local -i n="$1"   # Value to print
+    local -i n="$1"    # Value to print
     local -i len="$2"  # Fixed Len for the value e.g. 3 for "00n", "  n"
-    # Print a number with leading c or spaces
-    if [[ "$len" -eq 0 ]]; then
-        len=$actionLen
-    fi
-    if [[ "$n" -eq 0 ]]; then
-        n=$action
-        ((action += 1))
+    local strLead="$3"
+    local strTrail="$4"
+    # Print a "Action-Counter"
+    if [[ -n "$strLead" ]]; then
+        printf "%s" "$strLead"
     fi
     local retVal="$(strFixNum "$n" "$len")"
     printf "[$escCyanBold%s$escReset]" "$retVal"
+    if [[ -n "$strTrail" ]]; then
+        printf "%s" "$strTrail"
+    fi
 }
 strFixNum() {
     local -i n="$1"   # Value
@@ -164,7 +229,7 @@ strFixNum() {
     out+="$n"
     printf "%s" "$out"
 }
-DelLines() {
+delLines() {
     local -i lines="$1"
     # Delete lines from terminal
     if [[ $lines -gt 0 ]]; then
@@ -172,7 +237,75 @@ DelLines() {
     fi
 }
 ###  F u n c t i o n s  - specific  ###
-DownloadFiles() {
+getConfigFile(){
+    printAction
+    printf "Check & Get '$escBold$CONF_PRT$escReset' file... "
+    if [[ -f "$CONF_FILE" ]]; then
+        source "$CONF_FILE"
+    else
+        printNOK
+        printf "\n\tConfig '$CONF_PRT' not found.\n\t" >&2
+        printCheckReasonExit
+    fi
+    printOK
+    echo    
+}
+testConfigFile(){
+    # Check if all required variables are set
+    local -i MISSING=0
+    printAction
+    printf "${escBold}Test variables$escReset in '$CONF_PRT'... "
+    for var in "${REQUIRED_VARS[@]}"; do
+        if [[ -z "${!var}" ]]; then
+            printf "\n\tMissing Variable(s): $var" >&2
+            MISSING=1
+        fi
+    done
+    if [[ $MISSING -ne 0 ]]; then
+        printNOK
+        printf "\n\tMissing var(s) in '$CONF_PRT' file.\n\t" >&2
+        printCheckReasonExit
+    fi
+    printOK
+    echo
+}
+checkRoot(){
+    printAction
+    printf "Check for$escBold root$escReset privileges... "
+    # Check for root privileges
+    if [[ "$EUID" -ne 0 ]]; then
+        printNOK
+        printf "\n${escBold} Missing root privileges - start script with sudo...!$escReset\n\n" >&2
+        exit 1
+    fi
+    printOK
+    echo   
+}
+injectVARS(){
+    local destFile="$1"
+    printAction
+    printf "${escBold}Inject variables$escReset into '$destFile'... "
+    for i in "${!INJECT_VARS[@]}"; do
+        src_var="${INJECT_VARS[$i]}"
+        dest_placeholder="${INJECT_DEST[$i]}"
+        if [[ -z "${!src_var}" ]]; then
+            printNOK
+            echo "\n Variable '$src_var' does not exist.\n\t" >&2
+            printCheckReasonExit
+        fi
+        # Check if placeholder exists in the wrapper script
+        if ! grep -q "$dest_placeholder" "$destFile"; then
+            printNOK
+            echo "\n Placeholder '$dest_placeholder' not found in '$destFile'.\n\t" >&2
+            printCheckReasonExit
+        fi
+        sed -i "s|${dest_placeholder}|${!src_var}|g" "$destFile"
+    done
+    printOK
+    echo
+}
+###  F u n c t i o n s  - just because they are part of lib  ###
+downloadFiles() {
     # Function to loop download
     local target="$1"
     local url="$2"
@@ -180,14 +313,13 @@ DownloadFiles() {
     local -i locCnt=0
     local -i cnt=${#filesLST[@]}
     local -i fold=0
-    printf " "
-    printCNT 
-    printf " Wget$escBlueBold $cnt ${escReset}files for $target/... "
+    printAction
+    printf "Wget$escBlueBold $cnt ${escReset}files for $target/... "
     SaveCursor 1 "\n"
     for file in "${filesLST[@]}"; do
         if [[ $fold -eq 1 ]]; then
             UpCursor 1
-            DelLines 1
+            delLines 1
         fi
         if ! wget -q -O "$target/$file" "$url/$file"; then
             printf "\t$escRed$file$escReset\n"
@@ -205,7 +337,7 @@ DownloadFiles() {
     done
     if [[ $fold -eq 1 ]]; then
         UpCursor 1
-        DelLines 1
+        delLines 1
     fi
     SaveCursor 2
     RestoreCursor 1
@@ -230,14 +362,13 @@ makeDirs(){
     # Elements in dirs array
     local cnt=${#dirsList[@]}
     local -i fold=0
-    printf " "
-    printCNT
-    printf " Creating & Checking$escBlueBold $cnt ${escReset}Directories... "
+    printAction
+    printf "Creating & Checking$escBlueBold $cnt ${escReset}Directories... "
     SaveCursor 1 "\n"
     for dir in "${dirsList[@]}"; do
         if [[ $fold -eq 1 ]]; then
             UpCursor 1
-            DelLines 1
+            delLines 1
         fi
         if ! mkdir -p "$dir"; then
             printf "\t$escRed$dir$escReset\n"
@@ -252,7 +383,7 @@ makeDirs(){
     done
     if [[ $fold -eq 1 ]]; then
         UpCursor 1
-        DelLines 1
+        delLines 1
     fi
     SaveCursor 2 "\n"
     RestoreCursor 1
@@ -272,167 +403,221 @@ makeDirs(){
 ###  F u n c t i o n s  ###
 
 
+
+
 ###  M a i n  ###
 clear
-GetTermSize
-echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
-printf "| \033[1m p i S p o t   I n s t a l l a t i o n   S c r i p t \033[0m |"
-echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
 echo
+GetTermSize
 
-echo -n "[ 1] Check and get 'piSpot.conf' configuration file... "
-# Get piSpot configuration
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CONF_FILE="$SCRIPT_DIR/piSpot.conf"
-if [[ -f "$CONF_FILE" ]]; then
-    source "$CONF_FILE"
-else
-    printf "[\033[31m!\033[0m]"
-    echo "Config '$CONF_FILE' not found." >&2
-    exit 1
-fi
-printf "[\033[32m✓\033[0m]"
+# Header
+printf "  $escCyanBold 🛈 $escReset ${escUnderline}Installation/Update of $escBoldItalic$APP_NAME$escResetBold $APP_VERSION($APP_STATE)...$escReset "
+SaveCursor 0 "\n\n"
+((linesCNT += 3)) # leading line, header line, and trailing line
 
-echo -n "[ 2] Check & create required variables... "
-# Check required variables for wrapper
-REQUIRED_VARS=( \
-    wifi_ifname \
-    wifi_autoconnect \
-    SSID \
-    PASSWORD \
-    dhcp4_start \
-    dhcp4_stop \
-    dhcp4_leasetime \
-    dns_port \
-    ipv4_address \
-    ipv4_dns \
-    ipv4_method \
-    ipv6_dns \
-    ipv6_method \
-    WRAPPER_SOURCE \
-    WRAPPER_LOCATION \
-    WRAPPER_TARGET \
-    WRAPPER_ENVIRONMENT )
-
-MISSING=0
-for var in "${REQUIRED_VARS[@]}"; do
-    if [[ -z "${!var}" ]]; then
-        echo "Missing Variable(s): $var" >&2
-        MISSING=1
-    fi
-done
-if [[ $MISSING -ne 0 ]]; then
-    printf "[\033[31m!\033[0m]"
-    echo "Please check your $CONF_FILE file." >&2
-    exit 1
-fi
-printf "[\033[32m✓\033[0m]"
-
-echo -n "[ 3] Check for root privileges... "
 # Check for root privileges
-if [[ "$EUID" -ne 0 ]]; then
-    printf "[\033[31m!\033[0m]"
-	echo "Missing root privileges - use sudo...!" >&2
-	exit 1
-fi
-printf "[\033[32m✓\033[0m]"
+checkRoot
 
-echo -n "[ 4] Check for wrapper template... "
-# Check if the wrapper source file exists
-if [[ ! -f "$WRAPPER_SOURCE" ]]; then
-    printf "[\033[31m!\033[0m]"
-    echo "Wrapper source file '$WRAPPER_SOURCE' does not exist." >&2
-    exit 1
-fi
-printf "[\033[32m✓\033[0m]"
+# Check and get configuration file
+getConfigFile
+# Check required variables in configuration file
+testConfigFile
 
-WRAPPER_DIR="$(dirname "$WRAPPER_LOCATION")" # Just the path of the wrapper destination
-echo -n "[ 5] Create wrapper directory '$WRAPPER_DIR'... "
-# Create directories if they do not exist
-mkdir -p "$WRAPPER_DIR" || {
-    printf "[\033[31m!\033[0m]"
-    echo "Failed to create wrapper directory '$WRAPPER_DIR'." >&2
-    exit 1
-}
-printf "[\033[32m✓\033[0m]"
 
-# Inject variables into a temporary wrapper script
-TMP_WRAPPER="$(mktemp)"
-echo -n "[ 6] Create temporary wrapper '$TMP_WRAPPER'... "
-cp "$WRAPPER_SOURCE" "$TMP_WRAPPER"
-printf "[\033[32m✓\033[0m]"
-echo -n "[ 7] Inject variables into temporary wrapper... "
-sed -i "s|__IPV4ADDRESS__|$ipv4_address|g" "$TMP_WRAPPER"
-sed -i "s|__IPV4DNS__|$ipv4_dns|g" "$TMP_WRAPPER"
-sed -i "s|__IPV6DNS__|$ipv6_dns|g" "$TMP_WRAPPER"
-sed -i "s|__DHCP4START__|$dhcp4_start|g" "$TMP_WRAPPER"
-sed -i "s|__DHCP4STOP__|$dhcp4_stop|g" "$TMP_WRAPPER"
-sed -i "s|__DHCP4LEASETIME__|$dhcp4_leasetime|g" "$TMP_WRAPPER"
-sed -i "s|__DNSPORT__|$dns_port|g" "$TMP_WRAPPER"
-sed -i "s|__WRAPPERTARGET__|$WRAPPER_TARGET|g" "$TMP_WRAPPER"
-printf "[\033[32m✓\033[0m]"
+if [[ $WRAPPER_USE == "yes" ]]; then
 
-echo -n "[ 8] Check on file action needs for wrapping... "
-# Install or update the wrapper script
-if [[ -f "$WRAPPER_LOCATION" ]]; then
-    if ! cmp -s "$TMP_WRAPPER" "$WRAPPER_LOCATION"; then
-        printf "[\033[33m!\033[0m]"
-        echo "Differences detected between local wrapper and installed wrapper."
-        read -p "Update Wrapper? [y/N] " reply
-        if [[ "$reply" =~ ^[JjYy]$ ]]; then
-            cp "$TMP_WRAPPER" "$WRAPPER_LOCATION"
-            chmod +x "$WRAPPER_LOCATION"
-            echo "Wrapper successful updated."
+    # Check if the wrapper source file exists
+    printAction
+    printf "Check for '$escBold$WRAPPER_SOURCE$escReset' template... "
+    if [[ ! -f "$WRAPPER_SOURCE" ]]; then
+        printNOK
+        printf "\n Wrapper template '$WRAPPER_SOURCE' does not exist.\n\t" >&2
+        printCheckReasonExit
+    fi
+    printOK
+    echo
+
+    # Create wrapper directory...
+    WRAPPER_DIR="$(dirname "$WRAPPER_LOCATION")"
+    printAction
+    printf "Create wrapper dir '$escBold$WRAPPER_DIR$escReset'... "
+    mkdir -p "$WRAPPER_DIR" || {
+        printNOK
+        echo "\n Failed to create '$WRAPPER_DIR'.\n\t" >&2
+        printCheckReasonExit
+    }
+    printOK
+    echo
+
+    # Create temporary wrapper
+    printAction
+    TMP_WRAPPER="$(mktemp)"
+    printf "Create temporary wrapper '$escBold$TMP_WRAPPER$escReset'... "
+    if [[ -z "$TMP_WRAPPER" ]]; then
+        printNOK
+        echo "\n Failed to create temporary wrapper.\n\t" >&2
+        printCheckReasonExit
+    else
+        cp "$WRAPPER_SOURCE" "$TMP_WRAPPER"
+    fi
+    printOK
+    echo
+    # Inject variables into the wrapper
+    injectVARS "$TMP_WRAPPER"   
+
+    # Install or update the wrapper script
+    printAction
+    printf "Check on$escBold installation / updating$escReset wrapper... "
+    SaveCursor 1
+    if [[ -f "$WRAPPER_LOCATION" ]]; then
+        if ! cmp -s "$TMP_WRAPPER" "$WRAPPER_LOCATION"; then
+            printWARN
+            printf "\n\tDiff. detected!$escGreen New$escReset:'$escBold$TMP_WRAPPER$escReset'\
+    $escYellow Old$escReset:'$escBold$WRAPPER_LOCATION$escReset'.\n\t"
+            read -p "Update wrapper? [y/N] " reply
+            SaveCursor 2
+            if [[ "$reply" =~ ^[JjYy]$ ]]; then
+                RestoreCursor 1
+                cp "$TMP_WRAPPER" "$WRAPPER_LOCATION" || {
+                    printNOK
+                    RestoreCursor 2
+                    printf "\n\tFailed to update '$WRAPPER_LOCATION'.\n\t" >&2
+                    printCheckReasonExit
+                }
+                chmod +x "$WRAPPER_LOCATION"
+                printOK 
+                #printf "\n\tWrapper updated '$WRAPPER_LOCATION'."
+            #else
+                #printf "\n\tUpdate cancelled." >&2
+            fi
         else
-            echo "Update cancelled." >&2
+            printOK
+            #printf "\n\t${escBold}Wrapper$escReset '$WRAPPER_LOCATION' is$escBold UpToDate$escReset."
         fi
     else
-        printf "[\033[32m✓\033[0m]"
-        echo "Wrapper is up to date."
+        cp "$TMP_WRAPPER" "$WRAPPER_LOCATION" || {
+            printNOK
+            printf "\n\tFailed to install '$WRAPPER_LOCATION'.\n\t" >&2
+            printCheckReasonExit
+        }
+        chmod +x "$WRAPPER_LOCATION"
+        printOK
+        #printf "\n\tWrapper installed: '$WRAPPER_LOCATION'."
     fi
-else
-    cp "$TMP_WRAPPER" "$WRAPPER_LOCATION"
-    chmod +x "$WRAPPER_LOCATION"
-    printf "[\033[32m✓\033[0m]"
-    echo "Wrapper installed: '$WRAPPER_LOCATION'."
-fi
-echo
-rm -f "$TMP_WRAPPER"
-
-echo -n "[ 9] Check on PATH action needs for wrapping... "
-# actualize PATH variable
-if grep -q "$WRAPPER_DIR" "$WRAPPER_ENVIRONMENT"; then
-    printf "[\033[32m✓\033[0m]"
-    echo "PATH '$WRAPPER_DIR' already exist in '$WRAPPER_ENVIRONMENT'."
-else
-    printf "[\033[33m!\033[0m]"
-    echo -n "[10] Actualizing PATH '$WRAPPER_DIR' in '$WRAPPER_ENVIRONMENT'..."
-    # Backup the original environment file - ONCE!
-    if [[ ! -f "$WRAPPER_ENVIRONMENT.piSpot.bak" ]]; then
-        printf "[\033[33m!\033[0m]"
-        echo -n "[10] Creating backup of '$WRAPPER_ENVIRONMENT' as '$WRAPPER_ENVIRONMENT.piSpot.bak'."
-        cp "$WRAPPER_ENVIRONMENT" "$WRAPPER_ENVIRONMENT.piSpot.bak"
-        printf "[\033[32m✓\033[0m]"
-    fi
-    echo -n "[11] Actualizing PATH '$WRAPPER_DIR' in '$WRAPPER_ENVIRONMENT'... "
-    sed -i "s|^PATH=\"\(.*\)\"|PATH=\"$WRAPPER_DIR:\1\"|" "$WRAPPER_ENVIRONMENT" || \
-    echo "PATH=\"$WRAPPER_DIR:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"" \
-    >> "$WRAPPER_ENVIRONMENT"
-    printf "[\033[32m✓\033[0m]"
-    echo "PATH '$WRAPPER_DIR' in '$WRAPPER_ENVIRONMENT' actualized. Reboot needed!"
     echo
-    read -p "Reboot now to apply changes? [y/N] " reboot_reply
-    if [[ "$reboot_reply" =~ ^[YyJj]$ ]]; then
-        echo "System rebooting - you need to run this installation script once again to finish the piSpot installation!"
-        read -p "Press ENTER to reboot..."
-        shutdown -r now
+    rm -f "$TMP_WRAPPER"
+
+
+    doReboot=0
+    # Check on systemd override folder
+    printAction
+    printf "Check on $escBold$WRAPPER_SYSTEMD$escReset... "
+    SaveCursor 1
+    if [[ ! -d "$WRAPPER_SYSTEMD" ]]; then
+        printWARN
+        echo
+        printAction
+        printf "${escBold}Creating$escReset $WRAPPER_SYSTEMD... "
+        mkdir -p "$WRAPPER_SYSTEMD" || {
+            printNOK
+            printf "\n\tFailed to create\n\t" >&2
+            printf "     '$WRAPPER_SYSTEMD'.\n\t" >&2
+            printCheckReasonExit
+        }
+        printOK
+        echo
     else
-        echo "Quitting setup - You need to reboot your system to apply changes!" >&2
-        echo "After reboot you need to run this installation script once again to finish the piSpot installation!" >&2
-        exit 1
+        printOK
+        echo
     fi
+
+    # Check on systemd override file 
+    SYSTEMD_CONF="$WRAPPER_SYSTEMD/$WRAPPER_CONF"
+    printAction
+    printf "Check on $escBold$WRAPPER_CONF$escReset file... "
+    confIsNew=0
+    if [[ ! -f "$SYSTEMD_CONF" ]]; then
+        printWARN
+        echo
+        printAction
+        printf "${escBold}Creating$escReset $WRAPPER_CONF file... "
+        # Create the override file with the default content
+        echo "PATH=\"$WRAPPER_DIR:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"" > "$SYSTEMD_CONF" || {
+            printNOK
+            printf "\n\tFailed to create '$WRAPPER_CONF'.\n\t" >&2
+            printCheckReasonExit
+        }
+        confIsNew=1
+        doReboot=1
+    fi
+    printOK
+    echo
+
+    if [[ $confIsNew -eq 0 ]]; then
+        # Check if the wrapper directory is already in the PATH
+        printAction
+        printf "Check if '$escBold$WRAPPER_DIR$escReset' is in '$WRAPPER_CONF'... "
+        SaveCursor 1
+        # Check if WRAPPER_LOCATION is in front of PATH in SYSTEMD_CONF
+        if grep -q "^PATH=\"$WRAPPER_DIR:" "$SYSTEMD_CONF"; then
+            printOK
+            echo
+            #printf "\n\tPATH '$WRAPPER_DIR' already exists in '$WRAPPER_CONF'.\n"
+        else
+            # Inject the WRAPPER_LOCATION in front of the PATH in WRAPPER_ENVIRONMENT
+            printWARN
+            echo
+            # printAction
+            # printf "Inject '$WRAPPER_DIR' in front of '$WRAPPER_CONF' PATH... "
+            # SaveCursor 2
+            # Backup the override.conf - ONCE!
+            if [[ ! -f "$SYSTEMD_CONF.piSpot.bak" ]]; then
+                printAction
+                printf "${escBold}Backup '$WRAPPER_CONF' as '$escBold$WRAPPER_CONF.piSpot.bak$escReset'... "
+                cp "$SYSTEMD_CONF" "$SYSTEMD_CONF.piSpot.bak" || {
+                    printNOK
+                    printf "\n\tFailed to backup '$WRAPPER_CONF'.\n\t" >&2
+                    printCheckReasonExit
+                }
+                printOK
+                echo
+            fi
+            printAction
+            printf "${escBold}Injecting$escReset '$WRAPPER_DIR' in '$WRAPPER_CONF'... "
+            # Add WRAPPER_DIR to the front of PATH in WRAPPER_ENVIRONMENT
+            if ! sed -i "s|^PATH=\"\(.*\)\"|PATH=\"$WRAPPER_DIR:\1\"|" "$SYSTEMD_CONF"; then
+                printNOK
+                printf "\n\tFailed to actualize PATH in '$WRAPPER_CONF'.\n\t" >&2
+                printCheckReasonExit
+            fi
+            printOK
+            echo
+            # printf "\n\tPATH '$WRAPPER_DIR' in '$SYSTEMD_CONF' actualized."
+            doReboot=1
+        fi
+    fi
+    echo
+    if [[ $doReboot -eq 1 ]]; then
+        printf "\t"
+        read -p "Reboot now to apply changes? [y/N] " reboot_reply
+        if [[ "$reboot_reply" =~ ^[YyJj]$ ]]; then
+            printf "\n\t${escBold}System rebooting$escReset"
+            printf "\n\tYou need to run this installation script "
+            printf "\n\tonce again to finish the piSpot installation!\n\t"
+            read -p "Press ENTER to reboot..."
+            shutdown -r now
+        else
+            printf "\n\t${escBold}Quitting Setup Without ReBoot$escReset" >&2
+            printf "\n\tYou need to reboot your system to apply changes!" >&2
+            printf "\n\tAfter reboot you need to run this installation script " >&2
+            printf "\n\tonce again to finish the piSpot installation!\n\n" >&2
+            exit 1
+        fi
+    fi
+    #UpCursor 1
 fi
 
+exit
 
 ########## Setup Access Point ##########
 echo

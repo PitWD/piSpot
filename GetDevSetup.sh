@@ -13,11 +13,27 @@
 
 
 ###  A P P  D E F I N I T I O N S  ###
-REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src"
+#REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src"
+REPO_URL="file:///home/pit/OneDrive/GIT/piSpot/src" # For local testing
 APP_NAME="piSpot"
 APP_VERSION="0.0.1"
 APP_STATE="dev" # alpha, beta, stable, dev
-TARGET_DIR="$HOME/.$APP_NAME"
+# Get dir of script and set expected app.conf
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TARGET_DIR="$SCRIPT_DIR/.$APP_NAME"
+CONF_FILE="$TARGET_DIR/$APP_NAME.conf"
+TARGET_PRT="$CONF_FILE"  # For printing with ~
+CONF_PRT="$CONF_FILE"  # For printing with ~
+
+# If CONF_PRT starts with /home/<user>/, replace with ~
+if [[ "$CONF_PRT" =~ ^/home/([^/]+)/ ]]; then
+    CONF_PRT="~/${CONF_PRT#"/home/${BASH_REMATCH[1]}/"}"
+fi
+# If TARGET_DIR starts with /home/<user>/, replace it with ~
+if [[ "$TARGET_PRT" =~ ^/home/([^/]+)/ ]]; then
+    TARGET_PRT="~/${TARGET_PRT#"/home/${BASH_REMATCH[1]}/"}"
+fi
+
 declare -i actionLen=1  #  1,2,3 => [1],[ 1],[  1]
 
 # List of repo directories
@@ -100,10 +116,13 @@ csi="${esc}["
 escBold="${csi}1m"
 escItalic="${csi}3m"
 escUnderline="${csi}4m"
+escDblUnderline="${csi}21m"
 escReverse="${csi}7m"
 escHidden="${csi}8m"
 escStrikethrough="${csi}9m"
-escResetBold="${csi}21m"
+escBoldItalic="${csi}1;3m"
+escResetBold="${csi}22m"
+escResetFaint="${csi}22m"
 escResetItalic="${csi}23m"
 escResetUnderline="${csi}24m"
 escResetReverse="${csi}27m"
@@ -202,19 +221,28 @@ printNOK() {
 printWARN() {
     printf "[$escWARN]"
 }
+printCheckReasonExit(){
+    printf "${escBold}Please check the reason(s)!$escReset\n\n" >&2
+    exit 1    
+}
+printAction(){
+    printCNT $action $actionLen " " " "
+    ((action += 1))
+}
 printCNT() {
-    local -i n="$1"   # Value to print
+    local -i n="$1"    # Value to print
     local -i len="$2"  # Fixed Len for the value e.g. 3 for "00n", "  n"
-    # Print a number with leading c or spaces
-    if [[ "$len" -eq 0 ]]; then
-        len=$actionLen
-    fi
-    if [[ "$n" -eq 0 ]]; then
-        n=$action
-        ((action += 1))
+    local strLead="$3"
+    local strTrail="$4"
+    # Print a "Action-Counter"
+    if [[ -n "$strLead" ]]; then
+        printf "%s" "$strLead"
     fi
     local retVal="$(strFixNum "$n" "$len")"
     printf "[$escCyanBold%s$escReset]" "$retVal"
+    if [[ -n "$strTrail" ]]; then
+        printf "%s" "$strTrail"
+    fi
 }
 strFixNum() {
     local -i n="$1"   # Value
@@ -234,7 +262,7 @@ strFixNum() {
     out+="$n"
     printf "%s" "$out"
 }
-DelLines() {
+delLines() {
     local -i lines="$1"
     # Delete lines from terminal
     if [[ $lines -gt 0 ]]; then
@@ -242,7 +270,7 @@ DelLines() {
     fi
 }
 ###  F u n c t i o n s  - specific  ###
-DownloadFiles() {
+downloadFiles() {
     # Function to loop download
     local target="$1"
     local url="$2"
@@ -250,16 +278,15 @@ DownloadFiles() {
     local -i locCnt=0
     local -i cnt=${#filesLST[@]}
     local -i fold=0
-    printf " "
-    printCNT 
-    printf " Wget$escBlueBold $cnt ${escReset}files for $target/... "
+    printAction
+    printf "Curl$escBlueBold $cnt ${escReset}files for $target/... "
     SaveCursor 1 "\n"
     for file in "${filesLST[@]}"; do
         if [[ $fold -eq 1 ]]; then
             UpCursor 1
-            DelLines 1
+            delLines 1
         fi
-        if ! wget -q -O "$target/$file" "$url/$file"; then
+        if ! curl -s -o "$target/$file" "$url/$file"; then
             printf "\t$escRed$file$escReset\n"
             # Remove error file if empty
             if [[ -f "$target/$file" && ! -s "$target/$file" ]]; then
@@ -268,6 +295,8 @@ DownloadFiles() {
             locCnt=$((locCnt + 1))
         else
             printf "\t$file\n"
+            # If file ends with ".sh", make it executable
+            [[ "$file" == *.sh ]] && chmod +x "$target/$file" 2>/dev/null || true
         fi
         if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
             fold=1
@@ -275,7 +304,7 @@ DownloadFiles() {
     done
     if [[ $fold -eq 1 ]]; then
         UpCursor 1
-        DelLines 1
+        delLines 1
     fi
     SaveCursor 2
     RestoreCursor 1
@@ -300,14 +329,13 @@ makeDirs(){
     # Elements in dirs array
     local cnt=${#dirsList[@]}
     local -i fold=0
-    printf " "
-    printCNT
-    printf " Creating & Checking$escBlueBold $cnt ${escReset}Directories... "
+    printAction
+    printf "Creating & Checking$escBlueBold $cnt ${escReset}Directories... "
     SaveCursor 1 "\n"
     for dir in "${dirsList[@]}"; do
         if [[ $fold -eq 1 ]]; then
             UpCursor 1
-            DelLines 1
+            delLines 1
         fi
         if ! mkdir -p "$dir"; then
             printf "\t$escRed$dir$escReset\n"
@@ -322,7 +350,7 @@ makeDirs(){
     done
     if [[ $fold -eq 1 ]]; then
         UpCursor 1
-        DelLines 1
+        delLines 1
     fi
     SaveCursor 2 "\n"
     RestoreCursor 1
@@ -339,6 +367,74 @@ makeDirs(){
     echo
     return $locCnt
 }
+###  F u n c t i o n s  - just because the are part of lib  ###
+getConfigFile(){
+    printAction
+    printf "Check and get expected $APP_NAME.conf configuration file... "
+    if [[ -f "$CONF_FILE" ]]; then
+        source "$CONF_FILE"
+    else
+        printNOK
+        printf "\n Config '$CONF_PRT' not found.\n\t" >&2
+        printCheckReasonExit
+    fi
+    printOK
+    echo    
+}
+checkConfigFile(){
+    # Check if all required variables are set
+    local -i MISSING=0
+    printAction
+    printf "Check & create required variables... "
+    for var in "${REQUIRED_VARS[@]}"; do
+        if [[ -z "${!var}" ]]; then
+            echo "Missing Variable(s): $var" >&2
+            MISSING=1
+        fi
+    done
+    if [[ $MISSING -ne 0 ]]; then
+        printNOK
+        echo "\n Can't proceed with missing variable(s) in $CONF_PRT file.\n\t" >&2
+        printCheckReasonExit
+    fi
+    printOK
+    echo
+}
+checkRoot(){
+    printAction
+    echo -n "Check for root privileges... "
+    # Check for root privileges
+    if [[ "$EUID" -ne 0 ]]; then
+        printNOK
+        printf "\n${escBold} Missing root privileges - restart script with sudo...!$escReset\n\n" >&2
+        exit 1
+    fi
+    printOK
+    echo   
+}
+injectVARS(){
+    local destFile="$1"
+    printAction
+    printf "Inject variables into '$destFile'... "
+    for i in "${!INJECT_VARS[@]}"; do
+        source="${INJECT_VARS[$i]}"
+        dest_placeholder="${INJECT_DEST[$i]}"
+        if [[ -z "${!source}" ]]; then
+            printNOK
+            echo "\n Variable '$source' does not exist.\n\t" >&2
+            printCheckReasonExit
+        fi
+        # Check if placeholder exists in the wrapper script
+        if ! grep -q "$dest_placeholder" "$destFile"; then
+            printNOK
+            echo "\n Placeholder '$dest_placeholder' not found in '$destFile'.\n\t" >&2
+            printCheckReasonExit
+        fi
+        sed -i "s|$dest_placeholder|${!var_name}|g" "$destFile"
+    done
+    printOK
+    echo
+}
 ###  F u n c t i o n s  ###
 
 
@@ -349,7 +445,7 @@ GetTermSize
 
 # 'Analyze' job
 dirCNT=${#TARGET_FOLDERS[@]}
-#Loop FILES_LISTS to count files and stylish used lines while DownLoadFiles()
+#Loop FILES_LISTS to count files and stylish used lines while downloadFiles()
 for lst in "${FILES_LISTS[@]}"; do
     varName="${lst}_FILES"
     arrLength=$(eval echo "\${#${varName}[@]}")
@@ -358,8 +454,8 @@ for lst in "${FILES_LISTS[@]}"; do
 done
 
 # Header
-printf " [${escCyanBold}i$escReset]$escBlueBold $fileCNT ${escReset}files$escItalic($APP_STATE)$escReset"
-printf " in $escBlueBold$dirCNT$escReset folders for $escBold$escItalic$APP_NAME$escReset $APP_VERSION... "
+printf " ${escCyanBold} 🛈 $escReset$escBlueBold $fileCNT$escReset files in $escBlueBold$dirCNT$escReset"
+printf " folders for $escBoldItalic$APP_NAME$escResetBold $APP_VERSION($APP_STATE)...$escReset "
 SaveCursor 0 "\n\n"
 ((linesCNT += 3)) # leading line, header line, and trailing line
 
@@ -375,7 +471,7 @@ if [[ $linesCNT -gt TERM_Y ]]; then
     # fold directories
     RestoreCursor 1
     DownCursor 1
-    DelLines $dirCNT
+    delLines $dirCNT
     ((linesCNT -= (dirCNT+1)))
     #DownCursor 1
 fi
@@ -388,14 +484,14 @@ for lst in "${FILES_LISTS[@]}"; do
     lstFiles="${lst}_FILES"
     srcPath="${REPO_FOLDERS[$idx]}"
     dstPath="${TARGET_FOLDERS[$idx]}"
-    DownloadFiles "$dstPath" "$srcPath" $lstFiles[@]
+    downloadFiles "$dstPath" "$srcPath" $lstFiles[@]
     fold=0
     if [[ $linesCNT -gt TERM_Y ]]; then
         # files
         RestoreCursor 1
         DownCursor 1
         cnt=$(eval echo "\${#${lstFiles}[@]}")
-        DelLines $cnt
+        delLines $cnt
         ((linesCNT -= (cnt+1)))
         fold=1
     fi
@@ -414,27 +510,21 @@ if [[ $errCnt -gt 0 ]]; then
     if [[ $errCnt -eq $fileCNT ]]; then
         printNOK
         RestoreCursor 1
-        printf "\n$escRedBold ERROR:$escReset Downloading was not successful!\n\
-    ${escBold}Please check the reason(s)!$escReset\n\n"
-        exit 1
+        printf "\n$escRedBold ERROR:$escReset Downloading was not successful!\n\t" >&2
+        printCheckReasonExit
     else
         printWARN
         RestoreCursor 1
-        printf "\n$escYellowBold WARNING:$escReset Some files were not successfully downloaded.\n\
-    ${escBold}Please check the reason(s)!$escReset\n\n"
-        exit 1
+        printf "\n$escYellowBold WARNING:$escReset Some files were not successfully downloaded.\n\t" >&2
+        printCheckReasonExit
     fi
 else
     printOK
     RestoreCursor 1
-    printf "\n $escBold$escItalic$APP_NAME$escReset successfully downloaded to$escGreen $TARGET_DIR/$escReset... "
+    printf "\n $escBold$escItalic$APP_NAME$escReset successfully downloaded to$escGreen $CONF_PRT/$escReset... "
     printOK
-    # If TARGET_DIR starts with $HOME, replace it with ~
-    if [[ "$TARGET_DIR" == "$HOME/"* ]]; then
-        TARGET_DIR="${TARGET_DIR/#$HOME/\~}"
-    fi
     printf "\n$escBold You can now run the installation script:$escReset\n$escItalic\
-    cd $TARGET_DIR\n\
+    cd $CONF_PRT\n\
     sudo ./Install.sh$escReset\n\n"
 fi
 ###  F I N A L  ###
