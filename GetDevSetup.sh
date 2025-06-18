@@ -23,17 +23,15 @@ APP_DATE="18.06.2025"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET_DIR="$SCRIPT_DIR/.$APP_NAME"
 CONF_FILE="$TARGET_DIR/$APP_NAME.conf"
-TARGET_PRT="$CONF_FILE"  # For printing with ~
-CONF_PRT="$CONF_FILE"  # For printing with ~
 
-# If CONF_PRT starts with /home/<user>/, replace with ~
-if [[ "$CONF_PRT" =~ ^/home/([^/]+)/ ]]; then
-    CONF_PRT="~/${CONF_PRT#"/home/${BASH_REMATCH[1]}/"}"
+# If SCRIPT_PRT starts with /home/<user>, replace with ~
+# For displaying paths in a user-friendly way.
+SCRIPT_PRT="$SCRIPT_DIR"
+if [[ "$SCRIPT_PRT" =~ ^/home/([^/]+) ]]; then
+    SCRIPT_PRT="~${SCRIPT_PRT#"/home/${BASH_REMATCH[1]}"}"
 fi
-# If TARGET_DIR starts with /home/<user>/, replace it with ~
-if [[ "$TARGET_PRT" =~ ^/home/([^/]+)/ ]]; then
-    TARGET_PRT="~/${TARGET_PRT#"/home/${BASH_REMATCH[1]}/"}"
-fi
+TARGET_PRT="$SCRIPT_PRT/.$APP_NAME"
+CONF_PRT="$TARGET_PRT/$APP_NAME.conf"
 
 declare -i actionLen=1  #  1,2,3 => [1],[ 1],[  1]
 
@@ -270,6 +268,13 @@ delLines() {
         printf "${csi}%dM" "$lines"
     fi
 }
+clrLines() {
+    local -i lines="$1"
+    for ((i=0; i<lines; i++)); do
+        printf "${csi}2K"
+        printf "${csi}1E"
+    done
+}
 ###  F u n c t i o n s  - specific  ###
 downloadFiles() {
     # Function to loop download
@@ -436,6 +441,50 @@ injectVARS(){
     printOK
     echo
 }
+getValidPassword() {
+    local pwd="$1"
+    local forbidden="$2"
+    local pwd2="$1"
+    if [[ ${#pwd} -lt 8 || "$pwd" == "$forbidden" || "$pwd" == *[!a-zA-Z0-9\_\-] ]]; then
+        pwd=""
+        while true; do
+            printf "\tPlease enter a new password: "
+            read -s pwd
+            echo
+            delLines 2
+            printf "\tPlease verify the password: "
+            read -s pwd2
+            echo
+            if [[ "$pwd" != "$pwd2" ]]; then
+                printf "\tPasswords do not match. Please try again."
+                sleep 1
+                UpCursor 2
+                clrLines 2
+                UpCursor 2
+                continue
+            fi
+            if [[ ${#pwd} -lt 8 ]]; then
+                printf "\tPassword must be at least 8 characters long. Please try again."
+                UpCursor 2
+                clrLines 2
+                UpCursor 2
+                continue
+            fi
+            # Check for forbidden characters
+            if [[ "$pwd" == *[!a-zA-Z0-9\_\-] ]]; then
+                printf "\tPassword contains forbidden characters."
+                UpCursor 2
+                clrLines 2
+                UpCursor 2
+                continue
+            fi
+            break
+        done
+    fi
+    UpCursor 2
+    delLines 2
+    printf "$pwd\n"
+}
 ###  F u n c t i o n s  ###
 
 
@@ -443,6 +492,7 @@ injectVARS(){
 clear
 echo
 GetTermSize
+
 
 # 'Analyze' job
 dirCNT=${#TARGET_FOLDERS[@]}
@@ -525,7 +575,7 @@ else
     printf "\n $escBold$escItalic$APP_NAME$escReset successfully downloaded to$escGreen $CONF_PRT/$escReset... "
     printOK
     printf "\n$escBold You can now run the installation script:$escReset\n$escItalic\
-    cd $CONF_PRT\n\
+    cd $SCRIPT_PRT\n\
     sudo ./Install.sh$escReset\n\n"
 fi
 ###  F I N A L  ###

@@ -237,6 +237,13 @@ delLines() {
         printf "${csi}%dM" "$lines"
     fi
 }
+clrLines() {
+    local -i lines="$1"
+    for ((i=0; i<lines; i++)); do
+        printf "${csi}2K"
+        printf "${csi}1E"
+    done
+}
 ###  F u n c t i o n s  - specific  ###
 getConfigFile(){
     printAction
@@ -309,26 +316,27 @@ getValidPassword() {
     local pwd="$1"
     local forbidden="$2"
     local pwd2="$1"
-    if [[ ${#pwd} -lt 8 || "$pwd" == "$forbidden" ]]; then
+    if [[ ${#pwd} -lt 8 || "$pwd" == "$forbidden" || "$pwd" == *[!a-zA-Z0-9\_\-] ]]; then
         pwd=""
         while true; do
             printf "\tPlease enter a new password: "
             read -s pwd
+            echo
+            delLines 2
             printf "\tPlease verify the password: "
             read -s pwd2
-            delLines 1
-            UpCursor 1
+            echo
             if [[ "$pwd" != "$pwd2" ]]; then
                 printf "\tPasswords do not match. Please try again."
                 UpCursor 2
-                delLines 2
+                clrLines 2
                 UpCursor 2
                 continue
             fi
             if [[ ${#pwd} -lt 8 ]]; then
                 printf "\tPassword must be at least 8 characters long. Please try again."
                 UpCursor 2
-                delLines 2
+                clrLines 2
                 UpCursor 2
                 continue
             fi
@@ -336,7 +344,7 @@ getValidPassword() {
             if [[ "$pwd" == *[!a-zA-Z0-9\_\-] ]]; then
                 printf "\tPassword contains forbidden characters."
                 UpCursor 2
-                delLines 2
+                clrLines 2
                 UpCursor 2
                 continue
             fi
@@ -345,8 +353,7 @@ getValidPassword() {
     fi
     UpCursor 2
     delLines 2
-    UpCursor 2
-    printf "$pwd"
+    printf "$pwd\n"
 }
 ###  F u n c t i o n s  - just because they are part of lib  ###
 downloadFiles() {
@@ -447,8 +454,6 @@ makeDirs(){
     return $locCnt
 }
 ###  F u n c t i o n s  ###
-
-
 
 
 ###  M a i n  ###
@@ -652,6 +657,7 @@ if [[ $WRAPPER_USE == "yes" ]]; then
             printf "\n\tonce again to finish the piSpot installation!\n\t"
             read -p "Press ENTER to reboot..."
             shutdown -r now
+            exit 0
         else
             printf "\n\t${escBold}Quitting Setup Without ReBoot$escReset" >&2
             printf "\n\tYou need to reboot your system to apply changes!" >&2
@@ -724,7 +730,7 @@ if nmcli connection show | grep -q "$SSID"; then
     echo
     printAction
     printf "Remove '$SSID' connection... "
-    nmcli connection delete "$SSID" || {
+    nmcli connection delete "$SSID" > /dev/null || {
         printNOK
         printf "\n\tFailed to delete '$SSID'.\n\t" >&2
         printCheckReasonExit
