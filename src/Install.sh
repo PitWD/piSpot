@@ -4,6 +4,7 @@
 APP_NAME="piSpot"
 APP_VERSION="0.0.1"
 APP_STATE="dev" # alpha, beta, stable, dev
+APP_DATE="18.06.2025"
 # Get dir of script and set expected app.conf
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONF_FILE="$SCRIPT_DIR/$APP_NAME.conf"
@@ -303,6 +304,49 @@ injectVARS(){
     done
     printOK
     echo
+}
+getValidPassword() {
+    local pwd="$1"
+    local forbidden="$2"
+    local pwd2="$1"
+    if [[ ${#pwd} -lt 8 || "$pwd" == "$forbidden" ]]; then
+        pwd=""
+        while true; do
+            printf "\tPlease enter a new password: "
+            read -s pwd
+            printf "\tPlease verify the password: "
+            read -s pwd2
+            delLines 1
+            UpCursor 1
+            if [[ "$pwd" != "$pwd2" ]]; then
+                printf "\tPasswords do not match. Please try again."
+                UpCursor 2
+                delLines 2
+                UpCursor 2
+                continue
+            fi
+            if [[ ${#pwd} -lt 8 ]]; then
+                printf "\tPassword must be at least 8 characters long. Please try again."
+                UpCursor 2
+                delLines 2
+                UpCursor 2
+                continue
+            fi
+            # Check for forbidden characters
+            if [[ "$pwd" == *[!a-zA-Z0-9\_\-] ]]; then
+                printf "\tPassword contains forbidden characters."
+                UpCursor 2
+                delLines 2
+                UpCursor 2
+                continue
+            fi
+            break
+        done
+    fi
+    UpCursor 2
+    delLines 2
+    UpCursor 2
+    printf "$pwd"
 }
 ###  F u n c t i o n s  - just because they are part of lib  ###
 downloadFiles() {
@@ -619,42 +663,99 @@ if [[ $WRAPPER_USE == "yes" ]]; then
     #UpCursor 1
 fi
 
-exit
 
 ########## Setup Access Point ##########
+# Check if nmcli is installed
+printAction
+printf "Check for$escBold nmcli$escReset command... "
+if ! command -v nmcli &> /dev/null; then
+    printNOK
+    printf "\n\t'${escBold}nmcli$escReset' command not found.\n\t" >&2
+    printf "Please install NetworkManager and try again.\n\n" >&2
+    exit 1
+fi
+printOK
 echo
+# Check if the wifi interface is available
+printAction
+printf "Check for$escBold wifi interface$escReset '$wifi_ifname'... "
+if ! nmcli device status | grep -q "$wifi_ifname"; then
+    printNOK
+    printf "\n\t'${escBold}$wifi_ifname$escReset' interface not found.\n\t" >&2
+    printf "Please check your wifi interface name and try again.\n\t" >&2
+    printCheckReasonExit
+fi
+printOK
 echo
-echo -n "[12] Disconnect and remove '$SSID' - if exist... "
-nmcli connection down "$SSID" 2>/dev/null || true
-nmcli connection delete "$SSID" 2>/dev/null || true
-printf "[\033[32m✓\033[0m]"
+# Check if the wifi interface is connected - if yes, down it via its ssid
+printAction
+printf "Check if$escBold wifi interface$escReset '$wifi_ifname' is free... "
+actSSID="$(nmcli -t -f NAME connection show --active | grep "$wifi_ifname" | head -n 1)"
+if [[ -z "$actSSID" ]]; then
+    printOK
+    echo
+else
+    printWARN
+    echo
+    printAction
+    printf "Down the active connection '$actSSID'... "
+    nmcli connection down "$actSSID" || {
+        printNOK
+        printf "\n\tFailed to down the active connection '$actSSID'.\n\t" >&2
+        printCheckReasonExit
+    }
+    printOK
+    echo
+    printAction
+    printf "Delete the active connection '$actSSID'... "
+    nmcli connection delete "$actSSID" || {
+        printNOK
+        printf "\n\tFailed to delete the active connection '$actSSID'.\n\t"
+        printCheckReasonExit
+    }
+    printOK
+    echo
+fi
+# Delete connection SSID - if exist
+printAction
+printf "Check if$escBold SSID$escReset '$SSID' is free... "
+if nmcli connection show | grep -q "$SSID"; then
+    printWARN
+    echo
+    printAction
+    printf "Remove '$SSID' connection... "
+    nmcli connection delete "$SSID" || {
+        printNOK
+        printf "\n\tFailed to delete '$SSID'.\n\t" >&2
+        printCheckReasonExit
+    }
+    printOK
+else
+    printOK
+fi
 echo
-echo -n "[13] Creating new '$SSID' AP connection... "
+
+# Ask for PASSWORD if PASSWORD is "piSpot1234" or len < 8
+printAction
+printf "Check if$escBold PASSWORD$escReset is valid... "
+SaveCursor 1
+if [[ "$PASSWORD" == "piSpot1234" || ${#PASSWORD} -lt 8 || "$pwd" == *[!a-zA-Z0-9\_\-] ]]; then
+    printWARN
+    echo
+    PASSWORD="$(getValidPassword "$PASSWORD" "piSpot1234")"
+fi
+RestoreCursor 1
+printOK
+
+
+
+echo -n "Creating new '$SSID' AP @ '$wifi_ifname' connection... "
 nmcli connection add type wifi \
     ifname "$wifi_ifname" \
     con-name "$SSID" \
     autoconnect "$wifi_autoconnect" \
     ssid "$SSID" \
-    mode ap
-printf "[\033[32m✓\033[0m]"
-echo
-
-# Ask for PASSWORD if PASSWORD is "piSpot1234" or len < 8
-if [[ "$PASSWORD" == "piSpot1234" || ${#PASSWORD} -lt 8 ]]; then
-    echo -n "[?] Please enter a new password for '$SSID' AP connection: "
-    read -s PASSWORD
-    echo
-fi
-# Check if PASSWORD has at least 8 characters
-if [[ ${#PASSWORD} -lt 8 ]]; then
-    printf "[\033[31m!\033[0m]"
-    echo "Password must be at least 8 characters long." >&2
-    echo "Please run this script again and enter a valid password." >&2
-    exit 1
-fi
-
-echo -n "[14] Modify '$SSID' AP connection... "
-nmcli connection modify "$SSID" \
+    mode ap \
     802-11-wireless.mode ap \
     802-11-wireless.band bg \
     ipv4.method "$ipv4_method" \
@@ -665,149 +766,24 @@ nmcli connection modify "$SSID" \
     wifi-sec.proto rsn \
     wifi-sec.pairwise ccmp \
     wifi-sec.group ccmp
-printf "[\033[32m✓\033[0m]"
+if [[ $? -ne 0 ]]; then
+    printNOK
+    printf "\n\tFailed to create '$SSID' AP connection.\n\t" >&2
+    printCheckReasonExit
+fi
+printOK
 echo
-echo -n "[15] Activating Access Point '$SSID'... "
-nmcli connection up "$SSID"
-printf "[\033[32m✓\033[0m]"
+
+printAction
+printf "Upping Access Point '$SSID' @ '$wifi_ifname'... "
+nmcli connection up "$SSID" || {
+    printNOK
+    printf "\n\tFailed to up '$SSID' AP connection.\n\t" >&2
+    printCheckReasonExit
+}
+printOK
+echo
+echo
+printf "\n\tInstallation/Update of$escBoldItalic $APP_NAME $APP_VERSION($APP_STATE)$escReset finished successfully!\n\n"
 
 
-if [[ "$ipv4_method" == "shared" ]]; then
-	printf "\033[1m[\033[32m✓\033[0m\033[1m]    p i S p o t   i n s t a l l a t i o n   f i n i s h e d.\033[0m"
-	exit 0
-fi
-
-exit 1
-
-
-# The Following is just for setting up if "ip4.method != shared"
-# Some issues... especially on Raspberry Zero... Future stuff...
-# DO NOT USE/TEST THIS YET! Many Variable Names are outdated!
-
-: <<'OLD_DONT_USE'
-# Upstream-Interface ermitteln
-for TARGET_IP in 8.8.8.8 1.1.1.1; do
-    UPSTREAM=$(ip route get "$TARGET_IP" 2>/dev/null | awk '{print $5; exit}')
-    if [ -n "$UPSTREAM" ]; then
-        echo "[+] Upstream erkannt über $TARGET_IP → Interface: $UPSTREAM"
-        break
-    fi
-done
-
-if [ -z "$UPSTREAM" ]; then
-    echo "[!] Kein aktives Upstream-Interface erkannt. NAT-Konfiguration wird abgebrochen."
-    exit 1
-fi
-
-echo "[+] Starte dnsmasq auf Port "$DNSport
-pkill dnsmasq 2>/dev/null || true
-dnsmasq \
-  --interface="$IFACE" \
-  --listen-address="$IPADDR" \
-  --bind-interfaces \
-  --dhcp-range="$DHCPstartIP","$DHCPendIP",12h \
-  --port="$DNSport" \
-  --no-resolv \
-  --server=1.1.1.1 &
-
-echo "[+] IPv4-Forwarding aktivieren..."
-echo 1 > /proc/sys/net/ipv4/ip_forward
-
-echo "[+] Setze iptables-Regeln (NAT + Forwarding)"
-iptables -t nat -A POSTROUTING -o "$UPSTREAM" -j MASQUERADE
-iptables -A FORWARD -i "$IFACE" -o "$UPSTREAM" -j ACCEPT
-iptables -A FORWARD -i "$UPSTREAM" -o "$IFACE" -m state --state RELATED,ESTABLISHED -j ACCEPT
-
-echo "[+] Erlaube eingehenden Port 22 auf $UPSTREAM – blockiere alles andere"
-# Eingehende Verbindungen auf Port 22 erlauben (SSH)
-iptables -A INPUT -i "$UPSTREAM" -p tcp --dport 22 -j ACCEPT
-# Alles andere aus dem Internet blockieren
-iptables -A INPUT -i "$UPSTREAM" -j DROP
-
-echo "[✓] '$ipv4_method' piSpot Installation abgeschlossen"
-
-exit 0
-
-
-
-
-# VERY OLD SHIT  -  DO NOT USE
-########## Setup/Control/Update Wrapper ##########
-
-# Aktuelles Verzeichnis merken
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CONF_FILE="$SCRIPT_DIR/piSpot.conf"
-
-# Konfiguration einlesen
-if [[ -f "$CONF_FILE" ]]; then
-    source "$CONF_FILE"
-else
-    echo "Konfigurationsdatei $CONF_FILE nicht gefunden." >&2
-    exit 1
-fi
-
-# Prüfen ob benötigte Variablen definiert sind
-REQUIRED_VARS=(DHCPstartIP DHCPendIP DNSport IPADDR ORIGINAL_BIN)
-for var in "${REQUIRED_VARS[@]}"; do
-    if [[ -z "${!var}" ]]; then
-        echo "Fehlende Konfigurationsvariable: $var" >&2
-        exit 1
-    fi
-done
-
-# Wrapper-Pfade aus der Konfiguration oder Defaults
-WRAPPER_SOURCE="${WRAPPER_SOURCE:-$SCRIPT_DIR/dnsmasq.wrapper}"
-WRAPPER_TARGET="${WRAPPER_TARGET:-/usr/sbin/dnsmasq}"
-
-# Prüfen ob Root-Rechte vorliegen
-if [[ "$EUID" -ne 0 ]]; then
-    echo "Dieses Script muss als root ausgeführt werden." >&2
-    exit 1
-fi
-
-# Wrapper vorbereiten (Konstanten im Wrapper ersetzen)
-TMP_WRAPPER="$(mktemp)"
-cp "$WRAPPER_SOURCE" "$TMP_WRAPPER"
-
-# Konstanten ersetzen
-sed -i "s|__IPADDR__|$IPADDR|g" "$TMP_WRAPPER"
-sed -i "s|__DHCPSTART__|$DHCPstartIP|g" "$TMP_WRAPPER"
-sed -i "s|__DHCPSTOP__|$DHCPendIP|g" "$TMP_WRAPPER"
-sed -i "s|__DNSPORT__|$DNSport|g" "$TMP_WRAPPER"
-
-# Wrapper bereits installiert?
-if [[ -f "$ORIGINAL_BIN" && -f "$WRAPPER_TARGET" ]]; then
-    echo "Wrapper scheint bereits installiert zu sein."
-
-    if ! cmp -s "$TMP_WRAPPER" "$WRAPPER_TARGET"; then
-        echo "Abweichung zwischen lokalem Wrapper und installiertem Wrapper erkannt."
-        read -p "Wrapper aktualisieren? [j/N] " reply
-        if [[ "$reply" =~ ^[Jj]$ ]]; then
-            cp "$TMP_WRAPPER" "$WRAPPER_TARGET"
-            chmod +x "$WRAPPER_TARGET"
-            echo "Wrapper aktualisiert."
-        else
-            echo "Keine Änderungen vorgenommen."
-        fi
-    else
-        echo "Wrapper ist aktuell. Keine Aktion erforderlich."
-    fi
-else
-    echo "Wrapper ist noch nicht eingerichtet. Starte Einrichtung..."
-
-    # Binary verschieben
-    if [[ -x "$WRAPPER_TARGET" ]]; then
-        mv "$WRAPPER_TARGET" "$ORIGINAL_BIN"
-        echo "Original dnsmasq-Binary nach $ORIGINAL_BIN verschoben."
-    else
-        echo "Warnung: $WRAPPER_TARGET existiert nicht oder ist nicht ausführbar."
-    fi
-
-    # Wrapper installieren
-    cp "$TMP_WRAPPER" "$WRAPPER_TARGET"
-    chmod +x "$WRAPPER_TARGET"
-    echo "Wrapper installiert unter $WRAPPER_TARGET."
-fi
-
-rm -f "$TMP_WRAPPER"
-OLD_DONT_USE
