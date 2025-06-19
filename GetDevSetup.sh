@@ -284,8 +284,12 @@ downloadFiles() {
     local -i locCnt=0
     local -i cnt=${#filesLST[@]}
     local -i fold=0
+    targetPRT = "$target"
+    if [[ "$targetPRT" =~ ^/home/([^/]+) ]]; then
+        targetPRT="~${targetPRT#"/home/${BASH_REMATCH[1]}"}"
+    fi
     printAction
-    printf "Curl$escBlueBold $cnt ${escReset}files for $target/... "
+    printf "Curl$escBlueBold $cnt ${escReset}files for $targetPRT/... "
     SaveCursor 1 "\n"
     for file in "${filesLST[@]}"; do
         if [[ $fold -eq 1 ]]; then
@@ -575,7 +579,7 @@ else
     printf "\n $escBold$escItalic$APP_NAME$escReset successfully downloaded to$escGreen $CONF_PRT/$escReset... "
     printOK
     printf "\n$escBold You can now run the installation script:$escReset\n$escItalic\
-    cd $SCRIPT_PRT\n\
+    cd $TARGET_PRT\n\
     sudo ./Install.sh$escReset\n\n"
 fi
 ###  F I N A L  ###
