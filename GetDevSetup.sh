@@ -493,10 +493,6 @@ clear
 echo
 GetTermSize
 
-getValidPassword "$PASSWORD" "piSpot1234" PASSWORD
-echo "Password: $PASSWORD" >&2
-
-exit 0
 
 # 'Analyze' job
 dirCNT=${#TARGET_FOLDERS[@]}
