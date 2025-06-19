@@ -353,7 +353,7 @@ getValidPassword() {
     fi
     UpCursor 2
     delLines 2
-    printf "$pwd\n"
+    eval $3='$pwd'
 }
 ###  F u n c t i o n s  - just because they are part of lib  ###
 downloadFiles() {
@@ -748,7 +748,7 @@ SaveCursor 1
 if [[ "$PASSWORD" == "piSpot1234" || ${#PASSWORD} -lt 8 || "$pwd" == *[!a-zA-Z0-9\_\-] ]]; then
     printWARN
     echo
-    PASSWORD="$(getValidPassword "$PASSWORD" "piSpot1234")"
+    getValidPassword "$PASSWORD" "piSpot1234" PASSWORD
 fi
 RestoreCursor 1
 printOK

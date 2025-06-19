@@ -483,7 +483,7 @@ getValidPassword() {
     fi
     UpCursor 2
     delLines 2
-    printf "$pwd\n"
+    eval $3='$pwd'
 }
 ###  F u n c t i o n s  ###
 
@@ -493,6 +493,10 @@ clear
 echo
 GetTermSize
 
+getValidPassword "$PASSWORD" "piSpot1234" PASSWORD
+echo "Password: $PASSWORD" >&2
+
+exit 0
 
 # 'Analyze' job
 dirCNT=${#TARGET_FOLDERS[@]}
