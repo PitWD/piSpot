@@ -316,7 +316,7 @@ getValidPassword() {
     local pwd="$1"
     local forbidden="$2"
     local pwd2="$1"
-    if [[ ${#pwd} -lt 8 || "$pwd" == "$forbidden" || "$pwd" == *[!a-zA-Z0-9\_\-] ]]; then
+    if [[ ${#pwd} -lt 8 || "$pwd" == "$forbidden" ]]; then
         pwd=""
         while true; do
             printf "\tPlease enter a new password: "
@@ -335,14 +335,6 @@ getValidPassword() {
             fi
             if [[ ${#pwd} -lt 8 ]]; then
                 printf "\tPassword must be at least 8 characters long. Please try again."
-                UpCursor 2
-                clrLines 2
-                UpCursor 2
-                continue
-            fi
-            # Check for forbidden characters
-            if [[ "$pwd" == *[!a-zA-Z0-9\_\-] ]]; then
-                printf "\tPassword contains forbidden characters."
                 UpCursor 2
                 clrLines 2
                 UpCursor 2
@@ -745,7 +737,7 @@ echo
 printAction
 printf "Check if$escBold PASSWORD$escReset is valid... "
 SaveCursor 1
-if [[ "$PASSWORD" == "piSpot1234" || ${#PASSWORD} -lt 8 || "$pwd" == *[!a-zA-Z0-9\_\-] ]]; then
+if [[ "$PASSWORD" == "piSpot1234" || ${#PASSWORD} -lt 8 ]]; then
     printWARN
     echo
     getValidPassword "$PASSWORD" "piSpot1234" PASSWORD
