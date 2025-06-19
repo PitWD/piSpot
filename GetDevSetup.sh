@@ -284,7 +284,7 @@ downloadFiles() {
     local -i locCnt=0
     local -i cnt=${#filesLST[@]}
     local -i fold=0
-    targetPRT = "$target"
+    local targetPRT="$target"
     if [[ "$targetPRT" =~ ^/home/([^/]+) ]]; then
         targetPRT="~${targetPRT#"/home/${BASH_REMATCH[1]}"}"
     fi
@@ -343,15 +343,19 @@ makeDirs(){
     printf "Creating & Checking$escBlueBold $cnt ${escReset}Directories... "
     SaveCursor 1 "\n"
     for dir in "${dirsList[@]}"; do
+        local dirPRT="$dir"
+        if [[ "$dirPRT" =~ ^/home/([^/]+) ]]; then
+            dirPRT="~${dirPRT#"/home/${BASH_REMATCH[1]}"}"
+        fi
         if [[ $fold -eq 1 ]]; then
             UpCursor 1
             delLines 1
         fi
         if ! mkdir -p "$dir"; then
-            printf "\t$escRed$dir$escReset\n"
+            printf "\t$escRed$dirPRT$escReset\n"
             locCnt=$((locCnt + 1))
         else
-            printf "\t$dir\n"
+            printf "\t$dirPRT\n"
         fi
         if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
             fold=1
