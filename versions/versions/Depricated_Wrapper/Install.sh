@@ -36,13 +36,41 @@ REQUIRED_VARS=(
     "ipv4_method"
     "ipv6_dns"
     "ipv6_method"
+    "WRAPPER_USE"
+    "WRAPPER_SOURCE"
+    "WRAPPER_LOCATION"
+    "WRAPPER_TARGET"
+    "WRAPPER_SYSTEMD"
+    "WRAPPER_CONF"
     "TWEAK_USE"
     "TWEAK_SOURCE_DNS"
     "TWEAK_TARGET_DNS"
     "TWEAK_SOURCE_SERVICE"
     "TWEAK_TARGET_SERVICE"
 )
-# List of variables to inject into the dnsmasq restart scripts
+# List of variables to inject into the dnsmasq wrapper script
+# WRAPPING IS NOT FUNCTIONAL YET!
+WRAPPER_INJECT_VARS=(
+    "ipv4_address"
+    "ipv4_dns"
+    "ipv6_dns"
+    "dhcp4_start"
+    "dhcp4_stop"
+    "dhcp4_leasetime"
+    "dns_port"
+    "WRAPPER_TARGET"
+)
+WRAPPER_INJECT_DEST=(
+    "__IPV4ADDRESS__"
+    "__IPV4DNS__"
+    "__IPV6DNS__"
+    "__DHCP4START__"
+    "__DHCP4STOP__"
+    "__DHCP4LEASETIME__"
+    "__DNSPORT__"
+    "__WRAPPERTARGET__"
+)
+# List of variables to inject into the dnsmasq restart script
 TWEAK_INJECT_VARS=(
     "wifi_ifname"
     "ipv4_address"
@@ -70,19 +98,8 @@ TWEAK_INJECT_DEST=(
 SYSD_INJECT_VARS=(
     "TWEAK_TARGET_DNS"
 )
-SYSD_INJECT_DEST=(
+TWEAK_INJECT_DEST=(
     "__TWEAKTARGETDNS__"
-)
-
-# Management files with individual variables to inject
-tweak_manual_file="$SCRIPT_DIR/bin/tweak_manual.sh"
-
-# List of local to copy files (templates to bin  /  )
-local_src_FILES=(
-    "$SCRIPT_DIR/systemd/tweak.manual"
-)
-local_dest_FILES=(
-    "$tweak_manual_file"
 )
 ###  A P P  D E F I N I T I O N S  ###
 
@@ -372,57 +389,6 @@ getValidPassword() {
     delLines 2
     eval $3='$pwd'
 }
-copyFiles() {
-    # Function to loop copies
-    local filesLST=("${!1}")
-    local destLST=("${!2}")
-    local -i locCnt=0
-    local -i cnt=${#filesLST[@]}
-    local -i fold=0
-    printAction
-    printf "Copying$escBlueBold $cnt ${escReset}local files... "
-    SaveCursor 1 "\n"
-    for i in "${!filesLST[@]}"; do
-        if [[ $fold -eq 1 ]]; then
-            UpCursor 1
-            delLines 1
-        fi
-        local destPRT="${destLST[$i]}"
-        if [[ "$destPRT" =~ ^/home/([^/]+) ]]; then
-            destPRT="~${destPRT#"/home/${BASH_REMATCH[1]}"}"
-        fi
-        if ! cp "${filesLST[$i]}" "${destLST[$i]}"; then
-            printf "\t$escRed$destPRT$escReset\n"
-            locCnt=$((locCnt + 1))
-        else
-            printf "\t$destPRT\n"
-            # If file ends with ".sh", make it executable
-            [[ "${destLST[$i]}" == *.sh ]] && chmod +x "${destLST[$i]}" 2>/dev/null || true
-        fi
-        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
-            fold=1
-        fi
-    done
-    if [[ $fold -eq 1 ]]; then
-        UpCursor 1
-        delLines 1
-    fi
-    SaveCursor 2
-    RestoreCursor 1
-    if [[ $locCnt -gt 0 ]]; then
-        if [[ $locCnt -eq ${#filesLST[@]} ]]; then
-            printNOK
-        else
-            printWARN
-        fi
-    else
-        printOK
-    fi
-    errCnt=$((errCnt + locCnt))
-    RestoreCursor 2
-    echo
-    return $locCnt
-}
 ###  F u n c t i o n s  - just because they are part of lib  ###
 downloadFiles() {
     # Function to loop download
@@ -541,6 +507,204 @@ checkRoot
 getConfigFile
 # Check required variables in configuration file
 testConfigFile
+
+
+# Actually not working wrapping construct to inject individual vars in the 
+# command string when NetworkManager is calling dnsmasq.
+if [[ $WRAPPER_USE == "!! DONT_USE_THIS_ACTUALLY !!" ]]; then
+
+    # Check if the wrapper source file exists
+    printAction
+    printf "Check for '$escBold$WRAPPER_SOURCE$escReset' template... "
+    if [[ ! -f "$WRAPPER_SOURCE" ]]; then
+        printNOK
+        printf "\n Wrapper template '$WRAPPER_SOURCE' does not exist.\n\t" >&2
+        printCheckReasonExit
+    fi
+    printOK
+    echo
+
+    # Create wrapper directory...
+    WRAPPER_DIR="$(dirname "$WRAPPER_LOCATION")"
+    printAction
+    printf "Create wrapper dir '$escBold$WRAPPER_DIR$escReset'... "
+    mkdir -p "$WRAPPER_DIR" || {
+        printNOK
+        echo "\n Failed to create '$WRAPPER_DIR'.\n\t" >&2
+        printCheckReasonExit
+    }
+    printOK
+    echo
+
+    # Create temporary wrapper
+    printAction
+    TMP_WRAPPER="$(mktemp)"
+    printf "Create temporary wrapper '$escBold$TMP_WRAPPER$escReset'... "
+    if [[ -z "$TMP_WRAPPER" ]]; then
+        printNOK
+        echo "\n Failed to create temporary wrapper.\n\t" >&2
+        printCheckReasonExit
+    else
+        cp "$WRAPPER_SOURCE" "$TMP_WRAPPER"
+    fi
+    printOK
+    echo
+    # Inject variables into the wrapper
+    injectVARS "$TMP_WRAPPER"   
+
+    # Install or update the wrapper script
+    printAction
+    printf "Check on$escBold installation / updating$escReset wrapper... "
+    SaveCursor 1
+    if [[ -f "$WRAPPER_LOCATION" ]]; then
+        if ! cmp -s "$TMP_WRAPPER" "$WRAPPER_LOCATION"; then
+            printWARN
+            printf "\n\tDiff. detected!$escGreen New$escReset:'$escBold$TMP_WRAPPER$escReset'\
+    $escYellow Old$escReset:'$escBold$WRAPPER_LOCATION$escReset'.\n\t"
+            read -p "Update wrapper? [y/N] " reply
+            SaveCursor 2
+            if [[ "$reply" =~ ^[JjYy]$ ]]; then
+                RestoreCursor 1
+                cp "$TMP_WRAPPER" "$WRAPPER_LOCATION" || {
+                    printNOK
+                    RestoreCursor 2
+                    printf "\n\tFailed to update '$WRAPPER_LOCATION'.\n\t" >&2
+                    printCheckReasonExit
+                }
+                chmod +x "$WRAPPER_LOCATION"
+                printOK 
+                #printf "\n\tWrapper updated '$WRAPPER_LOCATION'."
+            #else
+                #printf "\n\tUpdate cancelled." >&2
+            fi
+        else
+            printOK
+            #printf "\n\t${escBold}Wrapper$escReset '$WRAPPER_LOCATION' is$escBold UpToDate$escReset."
+        fi
+    else
+        cp "$TMP_WRAPPER" "$WRAPPER_LOCATION" || {
+            printNOK
+            printf "\n\tFailed to install '$WRAPPER_LOCATION'.\n\t" >&2
+            printCheckReasonExit
+        }
+        chmod +x "$WRAPPER_LOCATION"
+        printOK
+        #printf "\n\tWrapper installed: '$WRAPPER_LOCATION'."
+    fi
+    echo
+    rm -f "$TMP_WRAPPER"
+
+
+    doReboot=0
+    # Check on systemd override folder
+    printAction
+    printf "Check on $escBold$WRAPPER_SYSTEMD$escReset... "
+    SaveCursor 1
+    if [[ ! -d "$WRAPPER_SYSTEMD" ]]; then
+        printWARN
+        echo
+        printAction
+        printf "${escBold}Creating$escReset $WRAPPER_SYSTEMD... "
+        mkdir -p "$WRAPPER_SYSTEMD" || {
+            printNOK
+            printf "\n\tFailed to create\n\t" >&2
+            printf "     '$WRAPPER_SYSTEMD'.\n\t" >&2
+            printCheckReasonExit
+        }
+        printOK
+        echo
+    else
+        printOK
+        echo
+    fi
+
+    # Check on systemd override file 
+    SYSTEMD_CONF="$WRAPPER_SYSTEMD/$WRAPPER_CONF"
+    printAction
+    printf "Check on $escBold$WRAPPER_CONF$escReset file... "
+    confIsNew=0
+    if [[ ! -f "$SYSTEMD_CONF" ]]; then
+        printWARN
+        echo
+        printAction
+        printf "${escBold}Creating$escReset $WRAPPER_CONF file... "
+        # Create the override file with the default content
+        echo "PATH=\"$WRAPPER_DIR:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"" > "$SYSTEMD_CONF" || {
+            printNOK
+            printf "\n\tFailed to create '$WRAPPER_CONF'.\n\t" >&2
+            printCheckReasonExit
+        }
+        confIsNew=1
+        doReboot=1
+    fi
+    printOK
+    echo
+
+    if [[ $confIsNew -eq 0 ]]; then
+        # Check if the wrapper directory is already in the PATH
+        printAction
+        printf "Check if '$escBold$WRAPPER_DIR$escReset' is in '$WRAPPER_CONF'... "
+        SaveCursor 1
+        # Check if WRAPPER_LOCATION is in front of PATH in SYSTEMD_CONF
+        if grep -q "^PATH=\"$WRAPPER_DIR:" "$SYSTEMD_CONF"; then
+            printOK
+            echo
+            #printf "\n\tPATH '$WRAPPER_DIR' already exists in '$WRAPPER_CONF'.\n"
+        else
+            # Inject the WRAPPER_LOCATION in front of the PATH in WRAPPER_ENVIRONMENT
+            printWARN
+            echo
+            # printAction
+            # printf "Inject '$WRAPPER_DIR' in front of '$WRAPPER_CONF' PATH... "
+            # SaveCursor 2
+            # Backup the override.conf - ONCE!
+            if [[ ! -f "$SYSTEMD_CONF.piSpot.bak" ]]; then
+                printAction
+                printf "${escBold}Backup '$WRAPPER_CONF' as '$escBold$WRAPPER_CONF.piSpot.bak$escReset'... "
+                cp "$SYSTEMD_CONF" "$SYSTEMD_CONF.piSpot.bak" || {
+                    printNOK
+                    printf "\n\tFailed to backup '$WRAPPER_CONF'.\n\t" >&2
+                    printCheckReasonExit
+                }
+                printOK
+                echo
+            fi
+            printAction
+            printf "${escBold}Injecting$escReset '$WRAPPER_DIR' in '$WRAPPER_CONF'... "
+            # Add WRAPPER_DIR to the front of PATH in WRAPPER_ENVIRONMENT
+            if ! sed -i "s|^PATH=\"\(.*\)\"|PATH=\"$WRAPPER_DIR:\1\"|" "$SYSTEMD_CONF"; then
+                printNOK
+                printf "\n\tFailed to actualize PATH in '$WRAPPER_CONF'.\n\t" >&2
+                printCheckReasonExit
+            fi
+            printOK
+            echo
+            # printf "\n\tPATH '$WRAPPER_DIR' in '$SYSTEMD_CONF' actualized."
+            doReboot=1
+        fi
+    fi
+    echo
+    if [[ $doReboot -eq 1 ]]; then
+        printf "\t"
+        read -p "Reboot now to apply changes? [y/N] " reboot_reply
+        if [[ "$reboot_reply" =~ ^[YyJj]$ ]]; then
+            printf "\n\t${escBold}System rebooting$escReset"
+            printf "\n\tYou need to run this installation script "
+            printf "\n\tonce again to finish the piSpot installation!\n\t"
+            read -p "Press ENTER to reboot..."
+            shutdown -r now
+            exit 0
+        else
+            printf "\n\t${escBold}Quitting Setup Without ReBoot$escReset" >&2
+            printf "\n\tYou need to reboot your system to apply changes!" >&2
+            printf "\n\tAfter reboot you need to run this installation script " >&2
+            printf "\n\tonce again to finish the piSpot installation!\n\n" >&2
+            exit 1
+        fi
+    fi
+    #UpCursor 1
+fi
+
 
 
 ########## Setup Access Point ##########
@@ -820,11 +984,6 @@ if [[ TWEAK_USE == "yes" ]]; then
     rm -f "$TMP_TWEAK_SYS"
 fi
 
-# copy local files from local_src_FILES to local_dest_FILES
-copyFiles "local_src_FILES[@]" "local_dest_FILES[@]"
-# inject (where necessary) settings into the copies
-injectVARS "$tweak_manual_file" "TWEAK_INJECT_VARS[@]" "TWEAK_INJECT_DEST[@]"
-
 printAction
 printf "Upping Access Point '$SSID' @ '$wifi_ifname'... "
 nmcli connection up "$SSID" || {
@@ -838,7 +997,7 @@ echo
 if [[ TWEAK_USE == "yes" ]]; then
     # Enable the tweak systemd service
     printAction
-    printf "Daemon-Reload systemd for '$escBold$TWEAK_TARGET_SERVICE$escReset'... "
+    printf "Daemon-Reload systemd for '$escBold$TWEAK_SERVICE$escReset'... "
     if ! systemctl enable daemon-reload > /dev/null; then
         printNOK
         printf "\n\tFailed to reload daemon.\n\t" >&2
@@ -848,10 +1007,10 @@ if [[ TWEAK_USE == "yes" ]]; then
     echo
     # Enable and start the tweak systemd service
     printAction
-    printf "Enabling and starting tweak systemd service '$escBold$TWEAK_TARGET_SERVICE$escReset'... "
-    if ! systemctl enable --now "$TWEAK_TARGET_SERVICE" > /dev/null; then
+    printf "Enabling and starting tweak systemd service '$escBold$TWEAK_SERVICE$escReset'... "
+    if ! systemctl enable --now "$TWEAK_SERVICE" > /dev/null; then
         printNOK
-        printf "\n\tFailed to enable and start '$TWEAK_TARGET_SERVICE'.\n\t" >&2
+        printf "\n\tFailed to enable and start '$TWEAK_SERVICE'.\n\t" >&2
         printCheckReasonExit
     fi
     printOK

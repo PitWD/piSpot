@@ -38,67 +38,71 @@ declare -i actionLen=1  #  1,2,3 => [1],[ 1],[  1]
 # List of repo directories
 REPO_FOLDERS=(
     "$REPO_URL"
-    "$REPO_URL/main"
     "$REPO_URL/wlan"
     "$REPO_URL/gsm"
+    "$REPO_URL/wrapper"
     "$REPO_URL/systemd"
 )
 # List of target directories
 TARGET_FOLDERS=(
     "$TARGET_DIR"
-    "$TARGET_DIR/main"
     "$TARGET_DIR/wlan"
     "$TARGET_DIR/gsm"
+    "$TARGET_DIR/wrapper"
     "$TARGET_DIR/systemd"
 )
 # prefix for the *_FILES lists
 FILES_LISTS=(
     "src"
-    "main"
     "wlan"
     "gsm"
+    "wrapper"
     "systemd"
 )
 
-# List of 'root' files (NOT templates)
+# List of main files
 src_FILES=(
     "Install.sh"
+    "Uninstall.sh"
+    "Up.sh"
+    "Down.sh"
     "piSpot.conf"
+    "Config.sh"
+    "State.sh"
 )
-# List of main files (templates)
-main_FILES=(
-    "piSpot.Uninstall"
-    "piSpot.up"
-    "piSpot.down"
-    "piSpot.config"
-    "piSpot.state"
-)
-# List of wlan files (templates)
+# List of wlan files
 wlan_FILES=(
-    "wlan.new"
-    "wlan.del"
-    "wlan.connect"
-    "wlan.disconnect"
-    "wlan.up"
-    "wlan.down"
+    "wlan_new.sh"
+    "wlan_del.sh"
+    "wlan_connect.sh"
+    "wlan_disconnect.sh"
+    "wlan_up.sh"
+    "wlan_down.sh"
 )
-# List of gsm files (templates)
+# List of gsm files
 gsm_FILES=(
-    "gsm.new"
-    "gsm.del"
-    "gsm.connect"
-    "gsm.disconnect"
-    "gsm.up"
-    "gsm.down"
+    "gsm_new.sh"
+    "gsm_del.sh"
+    "gsm_connect.sh"
+    "gsm_disconnect.sh"
+    "gsm_up.sh"
+    "gsm_down.sh"
 )
-# List of systemd tweaks dnsmasq files  (templates)
+# List of wrapper files
+wrapper_FILES=(
+    "dnsmasq.wrapper"
+    "wrapper_install.sh"
+    "wrapper_uninstall.sh"
+    #"NA.sh"
+)
+# List of systemd tweaks dnsmasq files
 systemd_FILES=(
     "dnsmasq.restarter"
     "systemd-restarter.service"
-    "tweak.manual"
+    "systemd_install.sh"
+    "systemd_uninstall.sh"
     #"NA.sh"
 )
-
 ###  A P P  D E F I N I T I O N S  ###
 
 
@@ -502,57 +506,6 @@ getValidPassword() {
     delLines 2
     eval $3='$pwd'
 }
-copyFiles() {
-    # Function to loop copies
-    local filesLST=("${!1}")
-    local destLST=("${!2}")
-    local -i locCnt=0
-    local -i cnt=${#filesLST[@]}
-    local -i fold=0
-    printAction
-    printf "Copying$escBlueBold $cnt ${escReset}local files... "
-    SaveCursor 1 "\n"
-    for i in "${!filesLST[@]}"; do
-        if [[ $fold -eq 1 ]]; then
-            UpCursor 1
-            delLines 1
-        fi
-        local destPRT="${destLST[$i]}"
-        if [[ "$destPRT" =~ ^/home/([^/]+) ]]; then
-            destPRT="~${destPRT#"/home/${BASH_REMATCH[1]}"}"
-        fi
-        if ! cp "${filesLST[$i]}" "${destLST[$i]}"; then
-            printf "\t$escRed$destPRT$escReset\n"
-            locCnt=$((locCnt + 1))
-        else
-            printf "\t$destPRT\n"
-            # If file ends with ".sh", make it executable
-            [[ "${destLST[$i]}" == *.sh ]] && chmod +x "${destLST[$i]}" 2>/dev/null || true
-        fi
-        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
-            fold=1
-        fi
-    done
-    if [[ $fold -eq 1 ]]; then
-        UpCursor 1
-        delLines 1
-    fi
-    SaveCursor 2
-    RestoreCursor 1
-    if [[ $locCnt -gt 0 ]]; then
-        if [[ $locCnt -eq ${#filesLST[@]} ]]; then
-            printNOK
-        else
-            printWARN
-        fi
-    else
-        printOK
-    fi
-    errCnt=$((errCnt + locCnt))
-    RestoreCursor 2
-    echo
-    return $locCnt
-}
 ###  F u n c t i o n s  ###
 
 
@@ -640,11 +593,11 @@ if [[ $errCnt -gt 0 ]]; then
 else
     printOK
     RestoreCursor 1
-    printf "\n $escBold$escItalic$APP_NAME$escReset successfully downloaded to$escGreen $TARGET_PRT/$escReset... "
+    printf "\n $escBold$escItalic$APP_NAME$escReset successfully downloaded to$escGreen $CONF_PRT/$escReset... "
     printOK
     printf "\n$escBold You can now run the installation script:$escReset\n$escItalic\
     cd $TARGET_PRT\n\
-    sudo bash ./Install.sh$escReset\n\n"
+    sudo ./Install.sh$escReset\n\n"
 fi
 ###  F I N A L  ###
 

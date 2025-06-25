@@ -1,14 +1,17 @@
 #!/bin/bash
 
-# If nmcli gets started in AP-mode with NAT, e.g:
+# - This script is intended to be run by systemd -
+# To restart dnsmasq with individual parameters
+# IF NetworkManager started a fitting dnsmasq instance
+
+# If NetworkManager gets started in AP-mode with NAT, e.g:
 
     # nmcli connection add type wifi \
         # ifname wlan0 \
         # con-name piSpot \
         # autoconnect yes \
         # ssid piSpot \
-        # mode ap
-    # nmcli connection modify piSpot \
+        # mode ap \
         # 802-11-wireless.mode ap \
         # 802-11-wireless.band bg \
         # ipv4.method shared \
@@ -26,6 +29,7 @@
 # gives us...:
     # nobody       702     549  0 15:10 ?        00:00:00
         #/usr/sbin/dnsmasq \
+            #--interface=wlan0 \
             #--conf-file=/dev/null \
             #--no-hosts \
             #--keep-in-foreground \
@@ -41,14 +45,12 @@
 
 # the "--conf-file=/dev/null" excludes us from using config files
 # and the "--conf-dir=/etc/NetworkManager/dnsmasq-shared.d" is then not used too
-# so we need to use a wrapper to be able to modify/inject parameters
+# so we need to use a tweak to be able to modify/inject parameters
 
 # We wanna set/modify the following parameters:
-#   the "--conf-file=/dev/null" we change to an individual listen port
-#   we change the "--dhcp-range=" parameters to individual values
-#   the "--conf-dir=" we change to individual upstream DNS servers
 # so, finally we get somthing like that:
     #/usr/sbin/dnsmasq \
+        #--interface=individual \
         #--port=individual \
         #--no-hosts \
         #--keep-in-foreground \
@@ -60,59 +62,64 @@
         #--dhcp-range=individual,individual,individual \
         #--dhcp-leasefile=/var/lib/NetworkManager/dnsmasq-wlan0.leases \
         #--pid-file=/run/nm-dnsmasq-wlan0.pid \
-        #--server=individual,individual 
-
+        #--server=individual \
+        #--conf-file=/dev/null \
 
 # These placeholders will be set by the Install.sh script
+wifi_ifname="__IFACE__"
 ipv4_address="__IPV4ADDRESS__"
 ipv4_dns="__IPV4DNS__"
 ipv6_dns="__IPV6DNS__"
 dhcp4_start="__DHCP4START__"
 dhcp4_stop="__DHCP4STOP__"
 dhcp4_leasetime="__DHCP4LEASETIME__"
+dhcp4_leasefile="__DHCP4LEASEFILE__"
 dns_port="__DNSPORT__"
-WRAPPER_TARGET="__WRAPPERTARGET__"
+dns_pidfile="__DNSPIDFILE__"
 
-# STARTIP und STOPIP berechnen
-IP_PREFIX=$(echo "$dhcp4_start" | awk -F. '{print $1 "." $2 "." $3 "."}')
-STARTIP="${IP_PREFIX}1"
-IP_PREFIX=$(echo "$dhcp4_stop" | awk -F. '{print $1 "." $2 "." $3 "."}')
-STOPIP="${IP_PREFIX}245"
+# Combine and make list of comma separated upstream DNS servers
+dns_upstream="$ipv4_dns,$ipv6_dns"
+IFS=',' read -r -a DNSservers <<< "$dns_upstream"
 
-MATCH_LISTEN="--listen-address=$ipv4_address"
-MATCH_DHCP="--dhcp-range=$STARTIP,$STOPIP,60m"
-MATCH_CONF_FILE="--conf-file=/dev/null"
-MATCH_CONF_DIR="--conf-dir=/etc/NetworkManager/dnsmasq-shared.d"
+strDNSmasq="dnsmasq"
+strDNSmasq+=" --interface=$wifi_ifname"
+strDNSmasq+=" --listen-address=$ipv4_address"
+strDNSmasq+=" --dhcp-range=$dhcp4_start,$dhcp4_end,$dhcp4_leasetime"
+strDNSmasq+=" --port=$dns_port"
+for server in "${DNSservers[@]}"; do
+    strDNSmasq+=" --server=$server"
+done
+strDNSmasq+=" --dhcp-leasefile=$dhcp4_leasefile"
+strDNSmasq+=" --pid-file=$dns_pidfile"
+strDNSmasq+=" --no-hosts"
+strDNSmasq+=" --keep-in-foreground"
+strDNSmasq+=" --bind-interfaces"
+strDNSmasq+=" --except-interface=lo"
+strDNSmasq+=" --clear-on-reload"
+strDNSmasq+=" --strict-order"
+strDNSmasq+=" --conf-file=/dev/null &"
 
-found=0
-for arg in "$@"; do
-    [[ "$arg" == "$MATCH_LISTEN" ]] && ((found++))
-    [[ "$arg" == "$MATCH_DHCP" ]] && ((found++))
-    [[ "$arg" == "$MATCH_CONF_DIR" ]] && ((found++))
-    [[ "$arg" == $MATCH_CONF_FILE* ]] && ((found++))
+
+for i in {1..120}; do
+    # Check if "ps -ef contains dns_pidfile
+    if ps -ef | grep -q $dns_pidfile; then
+        sudo pkill -f $dns_pidfile
+        if [ $? -ne 0 ]; then
+            echo " Failed to kill NetworkManagers dnsmasq." >&2
+            exit 1
+        fi
+        echo " NetworkManagers dnsmasq killed."
+        # Start dnsmasq with the new parameters
+        sudo sh -c "$strDNSmasq"
+        if [ $? -ne 0 ]; then
+            echo " Failed to start piSpots dnsmasq with new parameters." >&2
+            exit 1
+        fi
+        echo " Tweaked NetworkManager dnsmasq restarted by piSpot."
+        exit 0
+    fi
+    sleep 0.5
 done
 
-MODIFIED_ARGS=()
-if [[ "$found" -eq 4 ]]; then
-    for arg in "$@"; do
-        case "$arg" in
-            "$MATCH_CONF_FILE")
-                MODIFIED_ARGS+=("--port=$dns_port")
-                ;;
-            "$MATCH_DHCP")
-                MODIFIED_ARGS+=("--dhcp-range=$dhcp4_start,$dhcp4_stop,$dhcp4_leasetime")
-                ;;
-            "$MATCH_CONF_DIR")
-                MODIFIED_ARGS+=("--server=$ipv4_dns,$ipv6_dns")
-                ;;
-            *)
-                MODIFIED_ARGS+=("$arg")
-                ;;
-        esac
-    done
-else
-    MODIFIED_ARGS=("$@")
-fi
-
-exec "$WRAPPER_TARGET" "${MODIFIED_ARGS[@]}"
-
+echo " piSpots dnsmasq restarter failed to restart dnsmasq." >&2
+exit 1
