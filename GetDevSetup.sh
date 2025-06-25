@@ -438,8 +438,12 @@ injectVARS(){
     local destFile="$1"
     local srcLST=("${!2}")
     local dstLST=("${!3}")
+    local destPRT="$destFile"
+    if [[ "$destPRT" =~ ^/home/([^/]+) ]]; then
+        destPRT="~${destPRT#"/home/${BASH_REMATCH[1]}"}"
+    fi
     printAction
-    printf "${escBold}Inject variables$escReset into '$destFile'... "
+    printf "${escBold}Inject variables$escReset into '$destPRT'... "
     for i in "${!srcLST[@]}"; do
         src_var="${srcLST[$i]}"
         dest_placeholder="${dstLST[$i]}"
@@ -451,7 +455,7 @@ injectVARS(){
         # Check if placeholder exists in the wrapper script
         if ! grep -q "$dest_placeholder" "$destFile"; then
             printNOK
-            printf "\n Placeholder '$dest_placeholder' not found in '$destFile'.\n\t" >&2
+            printf "\n Placeholder '$dest_placeholder' not found in '$destPRT'.\n\t" >&2
             printCheckReasonExit
         fi
         sed -i "s|${dest_placeholder}|${!src_var}|g" "$destFile"
