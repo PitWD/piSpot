@@ -842,8 +842,8 @@ echo
 if [[ "$TWEAK_USE" == "yes" ]]; then
     # Enable the tweak systemd service
     printAction
-    printf "Daemon-Reload systemd for '$escBold$TWEAK_TARGET_SERVICE$escReset'... "
-    if ! systemctl enable daemon-reload > /dev/null; then
+    printf "Daemon-Reload systemd... "
+    if ! systemctl daemon-reload > /dev/null 2>&1; then
         printNOK
         printf "\n\tFailed to reload daemon.\n\t" >&2
         printCheckReasonExit
@@ -852,10 +852,10 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
     echo
     # Enable and start the tweak systemd service
     printAction
-    printf "Enabling and starting tweak systemd service '$escBold$TWEAK_TARGET_SERVICE$escReset'... "
+    printf "Start tweak service '$escBold$TWEAK_TARGET_SERVICE$escReset'... "
     if ! systemctl enable --now "$TWEAK_TARGET_SERVICE" > /dev/null 2>&1; then
         printNOK
-        printf "\n\tFailed to enable and start '$TWEAK_TARGET_SERVICE'.\n\t" >&2
+        printf "\n\tFailed to enable and start the tweak service.\n\t" >&2
         printCheckReasonExit
     fi
     printOK
