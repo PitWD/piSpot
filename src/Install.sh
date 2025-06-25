@@ -657,7 +657,7 @@ fi
 printOK
 echo
 
-if [[ TWEAK_USE == "yes" ]]; then
+if [[ "$TWEAK_USE" == "yes" ]]; then
     # Check if the tweak source dns file exists
     printAction
     printf "Check for '$escBold$TWEAK_SOURCE_DNS$escReset' tweak template... "
@@ -839,7 +839,7 @@ nmcli connection up "$SSID" > /dev/null 2>&1 || {
 printOK
 echo
 
-if [[ TWEAK_USE == "yes" ]]; then
+if [[ "$TWEAK_USE" == "yes" ]]; then
     # Enable the tweak systemd service
     printAction
     printf "Daemon-Reload systemd for '$escBold$TWEAK_TARGET_SERVICE$escReset'... "
@@ -853,7 +853,7 @@ if [[ TWEAK_USE == "yes" ]]; then
     # Enable and start the tweak systemd service
     printAction
     printf "Enabling and starting tweak systemd service '$escBold$TWEAK_TARGET_SERVICE$escReset'... "
-    if ! systemctl enable --now "$TWEAK_TARGET_SERVICE" > /dev/null; then
+    if ! systemctl enable --now "$TWEAK_TARGET_SERVICE" > /dev/null 2>&1; then
         printNOK
         printf "\n\tFailed to enable and start '$TWEAK_TARGET_SERVICE'.\n\t" >&2
         printCheckReasonExit
