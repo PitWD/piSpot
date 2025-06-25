@@ -42,6 +42,7 @@ REPO_FOLDERS=(
     "$REPO_URL/wlan"
     "$REPO_URL/gsm"
     "$REPO_URL/systemd"
+    "$REPO_URL/bin"
 )
 # List of target directories
 TARGET_FOLDERS=(
@@ -444,13 +445,13 @@ injectVARS(){
         dest_placeholder="${dstLST[$i]}"
         if [[ -z "${!src_var}" ]]; then
             printNOK
-            echo "\n Variable '$src_var' does not exist.\n\t" >&2
+            printf "\n Variable '$src_var' does not exist.\n\t" >&2
             printCheckReasonExit
         fi
         # Check if placeholder exists in the wrapper script
         if ! grep -q "$dest_placeholder" "$destFile"; then
             printNOK
-            echo "\n Placeholder '$dest_placeholder' not found in '$destFile'.\n\t" >&2
+            printf "\n Placeholder '$dest_placeholder' not found in '$destFile'.\n\t" >&2
             printCheckReasonExit
         fi
         sed -i "s|${dest_placeholder}|${!src_var}|g" "$destFile"
@@ -644,7 +645,7 @@ else
     printOK
     printf "\n$escBold You can now run the installation script:$escReset\n$escItalic\
     cd $TARGET_PRT\n\
-    sudo bash ./Install.sh$escReset\n\n"
+    sudo bash Install.sh$escReset\n\n"
 fi
 ###  F I N A L  ###
 

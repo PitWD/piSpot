@@ -323,13 +323,13 @@ injectVARS(){
         dest_placeholder="${dstLST[$i]}"
         if [[ -z "${!src_var}" ]]; then
             printNOK
-            echo "\n Variable '$src_var' does not exist.\n\t" >&2
+            printf "\n Variable '$src_var' does not exist.\n\t" >&2
             printCheckReasonExit
         fi
         # Check if placeholder exists in the wrapper script
         if ! grep -q "$dest_placeholder" "$destFile"; then
             printNOK
-            echo "\n Placeholder '$dest_placeholder' not found in '$destFile'.\n\t" >&2
+            printf "\n Placeholder '$dest_placeholder' not found in '$destFile'.\n\t" >&2
             printCheckReasonExit
         fi
         sed -i "s|${dest_placeholder}|${!src_var}|g" "$destFile"
@@ -391,7 +391,7 @@ copyFiles() {
         if [[ "$destPRT" =~ ^/home/([^/]+) ]]; then
             destPRT="~${destPRT#"/home/${BASH_REMATCH[1]}"}"
         fi
-        if ! cp "${filesLST[$i]}" "${destLST[$i]}"; then
+        if ! cp "${filesLST[$i]}" "${destLST[$i]}" 2> /dev/null; then
             printf "\t$escRed$destPRT$escReset\n"
             locCnt=$((locCnt + 1))
         else
@@ -644,7 +644,7 @@ nmcli connection add type wifi \
     wifi-sec.psk "$PASSWORD" \
     wifi-sec.proto rsn \
     wifi-sec.pairwise ccmp \
-    wifi-sec.group ccmp
+    wifi-sec.group ccmp > /dev/null 2>&1
 if [[ $? -ne 0 ]]; then
     printNOK
     printf "\n\tFailed to create '$SSID' AP connection.\n\t" >&2
