@@ -42,7 +42,6 @@ REPO_FOLDERS=(
     "$REPO_URL/wlan"
     "$REPO_URL/gsm"
     "$REPO_URL/systemd"
-    "$REPO_URL/bin"
 )
 # List of target directories
 TARGET_FOLDERS=(
@@ -51,6 +50,7 @@ TARGET_FOLDERS=(
     "$TARGET_DIR/wlan"
     "$TARGET_DIR/gsm"
     "$TARGET_DIR/systemd"
+    "$TARGET_DIR/bin"
 )
 # prefix for the *_FILES lists
 FILES_LISTS=(
