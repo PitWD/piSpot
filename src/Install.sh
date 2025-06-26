@@ -4,7 +4,9 @@
 APP_NAME="piSpot"
 APP_VERSION="0.0.1"
 APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="18.06.2025"
+APP_DATE="26.06.2025"
+
+
 # Get dir of script and set expected app.conf
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONF_FILE="$SCRIPT_DIR/$APP_NAME.conf"
@@ -41,6 +43,7 @@ REQUIRED_VARS=(
     "TWEAK_TARGET_DNS"
     "TWEAK_SOURCE_SERVICE"
     "TWEAK_TARGET_SERVICE"
+    "TWEAK_DNSMASQ"
 )
 # List of variables to inject into the dnsmasq restart scripts
 TWEAK_INJECT_VARS=(
@@ -54,6 +57,7 @@ TWEAK_INJECT_VARS=(
     "dhcp4_leasefile"
     "dns_port"
     "dns_pidfile"
+    "TWEAK_DNSMASQ"
 )
 TWEAK_INJECT_DEST=(
     "__IFACE__"
@@ -66,6 +70,7 @@ TWEAK_INJECT_DEST=(
     "__DHCP4LEASEFILE__"
     "__DNSPORT__"
     "__DNSPIDFILE__"
+    "__TWEAKDNSMASQ__"
 )
 SYSD_INJECT_VARS=(
     "TWEAK_TARGET_DNS"
@@ -660,10 +665,10 @@ echo
 if [[ "$TWEAK_USE" == "yes" ]]; then
     # Check if the tweak source dns file exists
     printAction
-    printf "Check for '$escBold$TWEAK_SOURCE_DNS$escReset' tweak template... "
+    printf "Check '$escBold$TWEAK_SOURCE_DNS$escReset' template... "
     if [[ ! -f "$TWEAK_SOURCE_DNS" ]]; then
         printNOK
-        printf "\n Tweak template '$TWEAK_SOURCE_DNS' does not exist.\n\t" >&2
+        printf "\n Template '$TWEAK_SOURCE_DNS' doesn't exist.\n\t" >&2
         printCheckReasonExit
     fi
     printOK
@@ -744,7 +749,7 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
 
     # Check if the tweak source system file exists
     printAction
-    printf "Check for '$escBold$TWEAK_SOURCE_SERVICE$escReset' tweak template... "
+    printf "Check '$escBold$TWEAK_SOURCE_SERVICE$escReset' template... "
     if [[ ! -f "$TWEAK_SOURCE_SERVICE" ]]; then
         printNOK
         printf "\n Tweak template '$TWEAK_SOURCE_SERVICE' does not exist.\n\t" >&2
@@ -852,7 +857,7 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
     echo
     # Enable and start the tweak systemd service
     printAction
-    printf "Start tweak service '$escBold$TWEAK_TARGET_SERVICE$escReset'... "
+    printf "Start '$escBold$TWEAK_TARGET_SERVICE$escReset'... "
     if ! systemctl enable --now "$TWEAK_TARGET_SERVICE" > /dev/null 2>&1; then
         printNOK
         printf "\n\tFailed to enable and start the tweak service.\n\t" >&2

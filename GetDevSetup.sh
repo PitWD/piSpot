@@ -1,5 +1,12 @@
 #!/bin/bash
 
+APP_NAME="piSpot"
+APP_VERSION="0.0.1"
+APP_STATE="dev" # alpha, beta, stable, dev
+APP_DATE="26.06.2025"
+
+
+
 # This script gets all files to get a piSpot installation done.
 # This script loads the latest files from the piSpot repository on GitHub.
 # This script is just for development purposes and should not be used in "the wild".
@@ -15,10 +22,7 @@
 ###  A P P  D E F I N I T I O N S  ###
 REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src"
 #REPO_URL="file:///home/pit/OneDrive/GIT/piSpot/src" # For local testing
-APP_NAME="piSpot"
-APP_VERSION="0.0.1"
-APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="18.06.2025"
+
 # Get dir of script and set expected app.conf
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET_DIR="$SCRIPT_DIR/.$APP_NAME"

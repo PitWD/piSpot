@@ -1,3 +1,10 @@
+
+# APP_NAME="piSpot"
+# APP_VERSION="0.0.1"
+# APP_STATE="dev" # alpha, beta, stable, dev
+# APP_DATE="26.06.2025"
+
+
 [Unit]
 Description=Run piSpots dnsmasq.restarter, after NetworkManager started dnsmasq is ready
 After=network-online.target NetworkManager.service
@@ -5,11 +12,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# This is the script that restarts dnsmasq after NetworkManager has started it
-# It is used to ensure that dnsmasq is running with the correct configuration
-# and to apply any tweaks that are necessary.
+
 # __TWEAKTARGETDNS__ will be replaced by the install script.
-# The script is expected to be located at /usr/local/bin/dnsmasq.restarter.sh
 ExecStart=__TWEAKTARGETDNS__
 RemainAfterExit=yes
 

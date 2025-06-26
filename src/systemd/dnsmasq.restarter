@@ -1,5 +1,11 @@
 #!/bin/bash
 
+APP_NAME="piSpot"
+APP_VERSION="0.0.1"
+APP_STATE="dev" # alpha, beta, stable, dev
+APP_DATE="26.06.2025"
+
+
 # - This script is intended to be run by systemd -
 # To restart dnsmasq with individual parameters
 # IF NetworkManager started a fitting dnsmasq instance
@@ -76,6 +82,7 @@ dhcp4_leasetime="__DHCP4LEASETIME__"
 dhcp4_leasefile="__DHCP4LEASEFILE__"
 dns_port="__DNSPORT__"
 dns_pidfile="__DNSPIDFILE__"
+TWEAK_DNSMASQ="__TWEAKDNSMASQ__"
 
 # Combine and make list of comma separated upstream DNS servers
 dns_upstream="$ipv4_dns,$ipv6_dns"
@@ -109,7 +116,7 @@ for i in {1..120}; do
         fi
         echo " NetworkManagers dnsmasq killed."
         # Start dnsmasq with the new parameters
-        /usr/sbin/dnsmasq $strDNSmasq
+        $TWEAK_DNSMASQ $strDNSmasq
         if [ $? -ne 0 ]; then
             echo " Failed to start piSpots dnsmasq with new parameters." >&2
             exit 1
