@@ -109,7 +109,7 @@ for i in {1..120}; do
         fi
         echo " NetworkManagers dnsmasq killed."
         # Start dnsmasq with the new parameters
-        dnsmasq "$strDNSmasq"
+        /usr/sbin/dnsmasq $strDNSmasq
         if [ $? -ne 0 ]; then
             echo " Failed to start piSpots dnsmasq with new parameters." >&2
             exit 1
