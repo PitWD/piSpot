@@ -15,5 +15,5 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
-Alias=dnsmasq-restarter.service
+#Alias=dnsmasq-restarter.service
 
