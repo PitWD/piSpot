@@ -17,7 +17,7 @@ if [[ "$CONF_PRT" =~ ^/home/([^/]+)/ ]]; then
     CONF_PRT="~/${CONF_PRT#"/home/${BASH_REMATCH[1]}/"}"
 fi
 
-declare -i actionLen=2  #  1,2,3 => [1],[ 1],[  1]
+actionLen=2  
 TARGET_DIR=""
 REPO_URL=""
 
@@ -44,6 +44,14 @@ REQUIRED_VARS=(
     "TWEAK_SOURCE_SERVICE"
     "TWEAK_TARGET_SERVICE"
     "TWEAK_DNSMASQ"
+    "gsm_ifname"
+    "gsm_name"
+    "gsm_apn"
+    "gsm_pin"
+    "gsm_dial"    
+    "gsm_user"
+    "gsm_password"
+    "gsm_autoconnect"
 )
 # List of variables to inject into the dnsmasq restart scripts
 TWEAK_INJECT_VARS=(
@@ -78,6 +86,26 @@ SYSD_INJECT_VARS=(
 SYSD_INJECT_DEST=(
     "__TWEAKTARGETDNS__"
 )
+GSM_INJECT_VARS=(
+    "gsm_ifname"
+    "gsm_name"
+    "gsm_apn"
+    "gsm_pin"
+    "gsm_dial"    
+    "gsm_user"
+    "gsm_password"
+    "gsm_autoconnect"
+)
+GSM_INJECT_DEST=(
+    "__IFNAME__"
+    "__NAME__"
+    "__APN__"
+    "__PIN__"
+    "__DIAL__"    
+    "__USER__"
+    "__PASSWORD__"
+    "__AUTOCONNECT__"
+)
 
 # Management files with individual variables to inject
 tweak_manual_file="$SCRIPT_DIR/bin/tweak_manual.sh"
@@ -93,444 +121,14 @@ local_dest_FILES=(
 
 
 ###  G L O B A L  -  Variables  ###
-declare -a CURSOR_Y
-declare -a CURSOR_X
-declare -i TERM_X=80
-declare -i TERM_Y=24
-declare -i errCnt=0
-declare -i fileCNT=0
-declare -i dirCNT=0
-declare -i linesCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
-declare -i finalCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
-declare -i action=1
+source "./tui.lib" || {
+    printf "Error: Could not source tui.lib\n"
+    exit 1
+}
+
+linesCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
+finalCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
 ###  G L O B A L  -  Variables  ###
-
-
-###  E S C  -  constants  ###
-esc="\033"
-csi="${esc}["
-escBold="${csi}1m"
-escItalic="${csi}3m"
-escUnderline="${csi}4m"
-escDblUnderline="${csi}21m"
-escReverse="${csi}7m"
-escHidden="${csi}8m"
-escStrikethrough="${csi}9m"
-escBoldItalic="${csi}1;3m"
-escResetBold="${csi}22m"
-escResetFaint="${csi}22m"
-escResetItalic="${csi}23m"
-escResetUnderline="${csi}24m"
-escResetReverse="${csi}27m"
-escResetHidden="${csi}28m"
-escResetStrikethrough="${csi}29m"
-escFaint="${csi}2m"
-escReset="${csi}0m"
-escGreen="${csi}32m"
-escRed="${csi}31m"
-escYellow="${csi}33m"
-escBlue="${csi}34m"
-escCyan="${csi}36m"
-escMagenta="${csi}35m"
-escWhite="${csi}37m"
-escBlack="${csi}30m"
-escGray="${csi}90m"
-escGreenBold="${escGreen}${escBold}"
-escRedBold="${escRed}${escBold}"
-escYellowBold="${escYellow}${escBold}"
-escBlueBold="${escBlue}${escBold}"
-escCyanBold="${escCyan}${escBold}"
-escMagentaBold="${escMagenta}${escBold}"
-escWhiteBold="${escWhite}${escBold}"
-escBlackBold="${escBlack}${escBold}"
-escGrayBold="${escGray}${escBold}"
-escOK="$escGreenBold✔$escReset"
-escNOK="$escRedBold✘$escReset"
-escWARN="$escYellowBold☡$escReset"
-###  E S C  -  constants  ###
-
-
-###  F u n c t i o n s  - generic  ###
-SaveCursor() {
-    local idx="$1"
-    local prt="$2"
-    local pos
-    # Request cursor position from terminal
-    exec < /dev/tty
-    printf "${csi}6n"
-    # Read response: ESC [ row ; col R
-    IFS=';' read -sdR -r pos
-    pos="${pos#*[}" # Remove ESC[
-    CURSOR_Y[$idx]="${pos%%;*}"      # Row
-    CURSOR_X[$idx]="${pos##*;}"      # Column
-    #exec <&-
-    if [[ -n "$prt" ]]; then
-        printf "$prt"
-    fi
-}
-RestoreCursor() {
-    local idx="$1"
-    # Set cursor position
-    printf "${csi}%d;%dH" "${CURSOR_Y[$idx]}" "${CURSOR_X[$idx]}"
-}
-SetCursor() {
-    local x="$1"
-    local y="$2"
-    # Set cursor position
-    printf "${csi}%d;%dH" "${$y}" "${$x}"
-}
-UpCursor() {
-    local -i lines="$1"
-    # Move cursor up
-    printf "${csi}%dA" "$lines"
-}
-DownCursor() {
-    local -i lines="$1"
-    # Move cursor down
-    printf "${csi}%dB" "$lines"
-}
-LeftCursor() {
-    local -i cols="$1"
-    # Move cursor left
-    printf "${csi}%dD" "$cols"
-}
-RightCursor() {
-    local -i cols="$1"
-    # Move cursor right
-    printf "${csi}%dC" "$cols"
-}
-GetTermSize() {
-    # Get terminal size
-    if [[ -t 1 ]]; then
-        read -r TERM_Y TERM_X < <(stty size)
-    else
-        TERM_Y=24
-        TERM_X=80
-    fi
-}
-printOK() {
-    printf "[$escOK]"
-}
-printNOK() {
-    printf "[$escNOK]"
-}
-printWARN() {
-    printf "[$escWARN]"
-}
-printCheckReasonExit(){
-    printf "${escBold}Please check the reason(s)!$escReset\n\n" >&2
-    exit 1    
-}
-printAction(){
-    printCNT $action $actionLen " " " "
-    ((action += 1))
-}
-printCNT() {
-    local -i n="$1"    # Value to print
-    local -i len="$2"  # Fixed Len for the value e.g. 3 for "00n", "  n"
-    local strLead="$3"
-    local strTrail="$4"
-    # Print a "Action-Counter"
-    if [[ -n "$strLead" ]]; then
-        printf "%s" "$strLead"
-    fi
-    local retVal="$(strFixNum "$n" "$len")"
-    printf "[$escCyanBold%s$escReset]" "$retVal"
-    if [[ -n "$strTrail" ]]; then
-        printf "%s" "$strTrail"
-    fi
-}
-strFixNum() {
-    local -i n="$1"   # Value
-    local -i cnt="$2" # Fixed Len for the value e.g. 3 for "00n", "  n"
-    local c="$3"      # Character to use for padding
-    local out
-    local -i len=${#n}
-    [[ -z "$c" ]] && c=" "
-    if [[ $n -lt 0 ]]; then
-        # remove leading minus sign
-        n="${n#-}"
-        out="-"
-    fi
-    for ((i = len; i < cnt; i++)); do
-        out+="$c"
-    done
-    out+="$n"
-    printf "%s" "$out"
-}
-delLines() {
-    local -i lines="$1"
-    # Delete lines from terminal
-    if [[ $lines -gt 0 ]]; then
-        printf "${csi}%dM" "$lines"
-    fi
-}
-clrLines() {
-    local -i lines="$1"
-    for ((i=0; i<lines; i++)); do
-        printf "${csi}2K"
-        printf "${csi}1E"
-    done
-}
-###  F u n c t i o n s  - specific  ###
-getConfigFile(){
-    printAction
-    printf "Check & Get '$escBold$CONF_PRT$escReset' file... "
-    if [[ -f "$CONF_FILE" ]]; then
-        source "$CONF_FILE"
-    else
-        printNOK
-        printf "\n\tConfig '$CONF_PRT' not found.\n\t" >&2
-        printCheckReasonExit
-    fi
-    printOK
-    echo    
-}
-testConfigFile(){
-    # Check if all required variables are set
-    local -i MISSING=0
-    printAction
-    printf "${escBold}Test variables$escReset in '$CONF_PRT'... "
-    for var in "${REQUIRED_VARS[@]}"; do
-        if [[ -z "${!var}" ]]; then
-            printf "\n\tMissing Variable(s): $var" >&2
-            MISSING=1
-        fi
-    done
-    if [[ $MISSING -ne 0 ]]; then
-        printNOK
-        printf "\n\tMissing var(s) in '$CONF_PRT' file.\n\t" >&2
-        printCheckReasonExit
-    fi
-    printOK
-    echo
-}
-checkRoot(){
-    printAction
-    printf "Check for$escBold root$escReset privileges... "
-    # Check for root privileges
-    if [[ "$EUID" -ne 0 ]]; then
-        printNOK
-        printf "\n${escBold} Missing root privileges - start script with sudo...!$escReset\n\n" >&2
-        exit 1
-    fi
-    printOK
-    echo   
-}
-injectVARS(){
-    local destFile="$1"
-    local srcLST=("${!2}")
-    local dstLST=("${!3}")
-    local destPRT="$destFile"
-    if [[ "$destPRT" =~ ^/home/([^/]+) ]]; then
-        destPRT="~${destPRT#"/home/${BASH_REMATCH[1]}"}"
-    fi
-    printAction
-    printf "${escBold}Inject variables$escReset into '$destPRT'... "
-    for i in "${!srcLST[@]}"; do
-        src_var="${srcLST[$i]}"
-        dest_placeholder="${dstLST[$i]}"
-        if [[ -z "${!src_var}" ]]; then
-            printNOK
-            printf "\n Variable '$src_var' does not exist.\n\t" >&2
-            printCheckReasonExit
-        fi
-        # Check if placeholder exists in the wrapper script
-        if ! grep -q "$dest_placeholder" "$destFile"; then
-            printNOK
-            printf "\n Placeholder '$dest_placeholder' not found in '$destPRT'.\n\t" >&2
-            printCheckReasonExit
-        fi
-        sed -i "s|${dest_placeholder}|${!src_var}|g" "$destFile"
-    done
-    printOK
-    echo
-}
-getValidPassword() {
-    local pwd="$1"
-    local forbidden="$2"
-    local pwd2="$1"
-    if [[ ${#pwd} -lt 8 || "$pwd" == "$forbidden" ]]; then
-        pwd=""
-        while true; do
-            printf "\tPlease enter a new password: "
-            read -s pwd
-            echo
-            delLines 2
-            printf "\tPlease verify the password: "
-            read -s pwd2
-            echo
-            if [[ "$pwd" != "$pwd2" ]]; then
-                printf "\tPasswords do not match. Please try again."
-                UpCursor 2
-                clrLines 2
-                UpCursor 2
-                continue
-            fi
-            if [[ ${#pwd} -lt 8 ]]; then
-                printf "\tPassword must be at least 8 characters long. Please try again."
-                UpCursor 2
-                clrLines 2
-                UpCursor 2
-                continue
-            fi
-            break
-        done
-    fi
-    UpCursor 2
-    delLines 2
-    eval $3='$pwd'
-}
-copyFiles() {
-    # Function to loop copies
-    local filesLST=("${!1}")
-    local destLST=("${!2}")
-    local -i locCnt=0
-    local -i cnt=${#filesLST[@]}
-    local -i fold=0
-    printAction
-    printf "Copying$escBlueBold $cnt ${escReset}local files... "
-    SaveCursor 1 "\n"
-    for i in "${!filesLST[@]}"; do
-        if [[ $fold -eq 1 ]]; then
-            UpCursor 1
-            delLines 1
-        fi
-        local destPRT="${destLST[$i]}"
-        if [[ "$destPRT" =~ ^/home/([^/]+) ]]; then
-            destPRT="~${destPRT#"/home/${BASH_REMATCH[1]}"}"
-        fi
-        if ! cp "${filesLST[$i]}" "${destLST[$i]}" 2> /dev/null; then
-            printf "\t$escRed$destPRT$escReset\n"
-            locCnt=$((locCnt + 1))
-        else
-            printf "\t$destPRT\n"
-            # If file ends with ".sh", make it executable
-            [[ "${destLST[$i]}" == *.sh ]] && chmod +x "${destLST[$i]}" 2>/dev/null || true
-        fi
-        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
-            fold=1
-        fi
-    done
-    if [[ $fold -eq 1 ]]; then
-        UpCursor 1
-        delLines 1
-    fi
-    SaveCursor 2
-    RestoreCursor 1
-    if [[ $locCnt -gt 0 ]]; then
-        if [[ $locCnt -eq ${#filesLST[@]} ]]; then
-            printNOK
-        else
-            printWARN
-        fi
-    else
-        printOK
-    fi
-    errCnt=$((errCnt + locCnt))
-    RestoreCursor 2
-    echo
-    return $locCnt
-}
-###  F u n c t i o n s  - just because they are part of lib  ###
-downloadFiles() {
-    # Function to loop download
-    local target="$1"
-    local url="$2"
-    local filesLST=("${!3}")
-    local -i locCnt=0
-    local -i cnt=${#filesLST[@]}
-    local -i fold=0
-    printAction
-    printf "Curl$escBlueBold $cnt ${escReset}files for $target/... "
-    SaveCursor 1 "\n"
-    for file in "${filesLST[@]}"; do
-        if [[ $fold -eq 1 ]]; then
-            UpCursor 1
-            delLines 1
-        fi
-        if ! curl -s -o "$target/$file" "$url/$file"; then
-            printf "\t$escRed$file$escReset\n"
-            # Remove error file if empty
-            if [[ -f "$target/$file" && ! -s "$target/$file" ]]; then
-                rm -f "$target/$file"
-            fi
-            locCnt=$((locCnt + 1))
-        else
-            printf "\t$file\n"
-            # If file ends with ".sh", make it executable
-            [[ "$file" == *.sh ]] && chmod +x "$target/$file" 2>/dev/null || true
-        fi
-        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
-            fold=1
-        fi
-    done
-    if [[ $fold -eq 1 ]]; then
-        UpCursor 1
-        delLines 1
-    fi
-    SaveCursor 2
-    RestoreCursor 1
-    if [[ $locCnt -gt 0 ]]; then
-        if [[ $locCnt -eq ${#filesLST[@]} ]]; then
-            printNOK
-        else
-            printWARN
-        fi
-    else
-        printOK
-    fi
-    errCnt=$((errCnt + locCnt))
-    RestoreCursor 2
-    echo
-    return $locCnt
-}
-makeDirs(){
-    #Function to loop the to create directories
-    local dirsList=("${!1}")
-    local -i locCnt=0
-    # Elements in dirs array
-    local cnt=${#dirsList[@]}
-    local -i fold=0
-    printAction
-    printf "Creating & Checking$escBlueBold $cnt ${escReset}Directories... "
-    SaveCursor 1 "\n"
-    for dir in "${dirsList[@]}"; do
-        if [[ $fold -eq 1 ]]; then
-            UpCursor 1
-            delLines 1
-        fi
-        if ! mkdir -p "$dir"; then
-            printf "\t$escRed$dir$escReset\n"
-            locCnt=$((locCnt + 1))
-        else
-            printf "\t$dir\n"
-        fi
-        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
-            fold=1
-        fi
-        sleep 0.25 
-    done
-    if [[ $fold -eq 1 ]]; then
-        UpCursor 1
-        delLines 1
-    fi
-    SaveCursor 2 "\n"
-    RestoreCursor 1
-    if [[ $locCnt -gt 0 ]]; then
-        if [[ $locCnt -eq ${#dirsList[@]} ]]; then
-            printNOK
-        else
-            printWARN
-        fi
-    else
-        printOK
-    fi
-    RestoreCursor 2
-    echo
-    return $locCnt
-}
-###  F u n c t i o n s  ###
 
 
 ###  M a i n  ###

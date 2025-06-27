@@ -1,1 +1,183 @@
-sudo ip link set wwan0 up
+#!/bin/bash
+
+# Template to add GSM/WWAN connection to NetworkManager
+APP_NAME="piSpot"
+APP_VERSION="0.0.1"
+APP_STATE="dev" # alpha, beta, stable, dev
+APP_DATE="26.06.2025"
+
+
+# These placeholders will be set by the Install.sh script
+gsm_ifname="__IFNAME__" # e.g. "ttyUSB0" or "ttyACM0" or "*"
+gsm_name="__NAME__"
+gsm_apn="__APN__"
+gsm_pin="__PIN__"
+gsm_dial="__DIAL__"    
+gsm_user="__USER__"
+gsm_password="__PASSWORD__"
+gsm_autoconnect="__AUTOCONNECT__"
+
+
+###  G L O B A L  -  Variables  ###
+source "./tui.lib" || {
+    printf "Error: Could not source tui.lib\n"
+    exit 1
+}
+
+linesCNT=1
+finalCNT=1
+###  G L O B A L  -  Variables  ###
+
+
+###  M a i n  ###
+clear
+echo
+GetTermSize
+
+# Header
+printf "$escCyanBold 🛈 $escReset ${escUnderline}New NetworkManager GSM/WWAN connection...$escReset "
+SaveCursor 0 "\n\n"
+((linesCNT += 3)) # leading line, header line, and trailing line
+
+printAction
+printf "Check PIN... "
+SaveCursor 1
+if [[ "$gsm_pin" == "0000" ]]; then
+    printWARN
+    echo
+    getValidPassword "$gsm_pin" "0000" gsm_pin 4 "PIN"
+    RestoreCursor 1
+fi
+printOK
+echo
+
+printAction
+printf "Check APN... "
+SaveCursor 1
+if [[ -z "$gsm_apn" || "$gsm_apn" == "0000" ]]; then
+    printWARN
+    echo
+    getValidPassword "$gsm_apn" "0000" gsm_apn 1 "APN" " "
+    RestoreCursor 1
+fi
+printOK
+echo
+
+printAction
+printf "Check Dial Number... "
+SaveCursor 1
+if [[ "$gsm_dial" == "0000" ]]; then
+    printWARN
+    echo
+    getValidPassword "$gsm_dial" "0000" gsm_dial 0 "DialNo." " "
+    RestoreCursor 1
+fi
+printOK
+echo
+
+printAction
+printf "Check User Name... "
+SaveCursor 1
+if [[ "$gsm_user" == "0000" ]]; then
+    printWARN
+    echo
+    getValidPassword "$gsm_user" "0000" gsm_user 1 "User Name" " "
+    RestoreCursor 1
+fi
+printOK
+echo
+
+printAction
+printf "Check Password... "
+SaveCursor 1
+if [[ "$gsm_password" == "0000" ]]; then
+    printWARN
+    echo
+    getValidPassword "$gsm_password" "0000" gsm_password 1 "Password" " "
+    RestoreCursor 1
+fi
+printOK
+echo
+
+
+strGSM="con-name $gsm_name"
+strGSM+=" ifname $gsm_ifname"
+strGSM+=" gsm.apn $gsm_apn"
+if [[ $gsm_pin != "" ]]; then
+    strGSM+=" gsm.pin $gsm_pin"
+fi
+if [[ $gsm_dial != "" ]]; then
+    strGSM+=" gsm.dial $gsm_dial"
+fi
+if [[ $gsm_user != "" ]]; then
+    strGSM+=" gsm.user $gsm_user"
+fi
+if [[ $gsm_password != "" ]]; then
+    strGSM+=" gsm.password $gsm_password"
+fi
+strGSM+=" gsm.autoconnect $gsm_autoconnect"
+
+# If gsm_name is already a saved NetworkManager connection, remove old connection
+if nmcli connection show "$gsm_name" &>/dev/null; then  
+    printAction
+    printf "Old onnection '$gsm_name' exists, removing it... "
+    SaveCursor 1
+    if nmcli connection delete "$gsm_name"; then
+        SaveCursor 2
+        RestoreCursor 1
+        printOK
+        RestoreCursor 2
+    else
+        SaveCursor 2
+        RestoreCursor 1
+        printERROR
+        RestoreCursor 0
+        printERROR
+        RestoreCursor 2
+        echo
+        exit 1
+    fi
+fi
+
+printAction
+printf "Create new connection... "
+SaveCursor 1
+echo
+if nmcli connection add type gsm $strGSM; then
+    SaveCursor 2
+    RestoreCursor 1
+    printOK
+    RestoreCursor 2
+else
+    SaveCursor 2
+    RestoreCursor 1
+    printERROR
+    RestoreCursor 0
+    printERROR
+    RestoreCursor 2
+    echo
+    exit 1
+fi
+
+printAction
+printf "Activate new connection... "
+SaveCursor 1
+if nmcli connection up "$gsm_name"; then
+    SaveCursor 2
+    RestoreCursor 1
+    printOK
+    RestoreCursor 0
+    printOK
+    RestoreCursor 2
+    echo
+    exit 0
+else
+    SaveCursor 2
+    RestoreCursor 1
+    printERROR
+    RestoreCursor 0
+    printERROR
+    RestoreCursor 2
+    echo
+    exit 1
+fi
