@@ -25,7 +25,7 @@ REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src"
 
 # Get dir of script and set expected app.conf
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TARGET_DIR="$SCRIPT_DIR/.$APP_NAME"
+TARGET_DIR="$SCRIPT_DIR/${APP_NAME}.SETUP.DIR"
 CONF_FILE="$TARGET_DIR/$APP_NAME.conf"
 
 # If SCRIPT_PRT starts with /home/<user>, replace with ~
@@ -34,7 +34,7 @@ SCRIPT_PRT="$SCRIPT_DIR"
 if [[ "$SCRIPT_PRT" =~ ^/home/([^/]+) ]]; then
     SCRIPT_PRT="~${SCRIPT_PRT#"/home/${BASH_REMATCH[1]}"}"
 fi
-TARGET_PRT="$SCRIPT_PRT/.$APP_NAME"
+TARGET_PRT="$SCRIPT_PRT/${APP_NAME}.SETUP.DIR"
 CONF_PRT="$TARGET_PRT/$APP_NAME.conf"
 
 declare -i actionLen=1  #  1,2,3 => [1],[ 1],[  1]
@@ -54,7 +54,6 @@ TARGET_FOLDERS=(
     "$TARGET_DIR/wlan"
     "$TARGET_DIR/gsm"
     "$TARGET_DIR/systemd"
-    "$TARGET_DIR/bin"
 )
 # prefix for the *_FILES lists
 FILES_LISTS=(
@@ -69,6 +68,7 @@ FILES_LISTS=(
 src_FILES=(
     "Install.sh"
     "piSpot.conf"
+    "tui.lib"
 )
 # List of main files (templates)
 main_FILES=(
@@ -82,8 +82,6 @@ main_FILES=(
 wlan_FILES=(
     "wlan.new"
     "wlan.del"
-    "wlan.connect"
-    "wlan.disconnect"
     "wlan.up"
     "wlan.down"
 )
@@ -91,8 +89,6 @@ wlan_FILES=(
 gsm_FILES=(
     "gsm.new"
     "gsm.del"
-    "gsm.connect"
-    "gsm.disconnect"
     "gsm.up"
     "gsm.down"
 )

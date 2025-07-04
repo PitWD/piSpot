@@ -1,8 +1,10 @@
 #!/bin/bash
 
 ###  G L O B A L  -  Variables  ###
-declare -a CURSOR_Y
-declare -a CURSOR_X
+declare -a CURSOR_Y_ARR
+declare -a CURSOR_X_ARR
+declare -i CURSOR_Y=1
+declare -i CURSOR_X=1
 declare -i TERM_X=80
 declare -i TERM_Y=24
 declare -i errCnt=0
@@ -13,6 +15,184 @@ declare -i actionLen=1 # Length of the action counter, #  1,2,3 => [1],[.2],[..3
 # Set the following (app depending) variables in your app
 declare -i linesCNT=1 # starts with minimum lines to print (+/- with every printed/deleted line)
 declare -i finalCNT=1 # same but for functions - fixed values (functions working with absolute cursor position)
+
+# directory of lib calling script (in most cases already set by the calling script)
+if [[ -z "$SCRIPT_DIR" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
+# TUI_DIR like SCRIPT_DIR, but for printing reasons -- replace /home/username with ~
+TUI_DIR="$SCRIPT_DIR"
+if [[ "$TUI_DIR" =~ ^/home/([^/]+) ]]; then
+    TUI_DIR="~${TUI_DIR#"/home/${BASH_REMATCH[1]}"}"
+fi
+
+# if we use sys or user PATH, etc.
+TUI_SYS() {
+    [[ "$TUI_AS_SYS" == "true" || "$TUI_AS_SYS" == "on" || "$TUI_AS_SYS" == "1" ]]
+}
+# if sudo is used to run the script
+TUI_SUDO() {
+  [[ "$EUID" -eq 0 ]]
+}
+
+
+# If TUI_HOME and TUI_PATH and TUI_SHARE are not set, check on sudo and build them
+if [[ -z "$TUI_HOME" ]]; then
+    # If sudo - get the Users PATH & HOME
+    if TUI_SUDO && ! TUI_SYS; then
+        TUI_HOME=$(sudo -u "$SUDO_USER" bash -c 'echo $HOME')
+    else
+        TUI_HOME="$HOME"
+    fi
+fi
+if [[ -z "$TUI_PATH" ]]; then
+    # If sudo - get the Users PATH
+    if TUI_SUDO && ! TUI_SYS; then
+        TUI_PATH=$(sudo -u "$SUDO_USER" bash -c 'echo $PATH')
+    else
+        TUI_PATH="$PATH"
+    fi
+fi
+
+
+# Priority list of system bin destinations
+BIN_SYS_LIST=(
+    "/usr/local/sbin"
+    "/usr/local/bin"
+    "/usr/sbin"
+    "/usr/bin"
+    "/sbin"
+    "/bin"
+    "$TUI_HOME/bin"
+    "$TUI_HOME/.local/bin"
+)
+# Priority list of user bin destinations
+BIN_USR_LIST=(
+    "$TUI_HOME/bin"
+    "$TUI_HOME/.local/bin"
+    "/usr/local/sbin"
+    "/usr/local/bin"
+    "/usr/sbin"
+    "/usr/bin"
+    "/sbin"
+    "/bin"
+)
+# Priority list of system share destinations
+SHARE_SYS_LIST=(
+    "/usr/local/share"
+    "/usr/share"
+    "$TUI_HOME/.local/share"
+    "$TUI_HOME/share"
+) 
+# Priority list of user share destinations
+SHARE_USR_LIST=(
+    "$TUI_HOME/.local/share"
+    "$TUI_HOME/share"
+    "/usr/local/share"
+    "/usr/share"
+)
+# Priority list of system lib destinations
+LIB_SYS_LIST=(
+    "/usr/local/lib"
+    "/usr/lib"
+    "$TUI_HOME/.local/lib"
+    "$TUI_HOME/lib"
+)
+# Priority list of user lib destinations
+LIB_USR_LIST=(
+    "$TUI_HOME/.local/lib"
+    "$TUI_HOME/lib"
+    "/usr/local/lib"
+    "/usr/lib"
+)
+
+# BIN_DIR is eventually already set by the main script - but if not:
+GetBinDir() {
+    if TUI_SYS; then
+        search_list=("${BIN_SYS_LIST[@]}")
+    else
+        search_list=("${BIN_USR_LIST[@]}")
+    fi
+    for dir in "${search_list[@]}"; do
+        if [[ ":$TUI_PATH:" == *":$dir:"* ]]; then
+            BIN_DIR="$dir"
+            return 0
+        fi
+    done
+    # If no BIN_DIR is set, use the first entry in LIST which exists
+    for dir in "${search_list[@]}"; do
+        if [[ -d "$dir" ]]; then
+            BIN_DIR="$dir"
+            return 0
+        fi
+    done
+    BIN_DIR="$SCRIPT_DIR/bin"  # Fallback to script directory
+}
+if [[ -z "$BIN_DIR" ]]; then
+    GetBinDir
+    # Check if BIN_DIR exists - if not, create it
+    if [[ ! -d "$BIN_DIR" ]]; then
+        if ! mkdir -p "$BIN_DIR"; then
+            printf "${escRedBold}Error${escReset}: No valid BIN_DIR: '$escBold$BIN_DIR$escReset'\n\n" >&2
+            exit 1
+        fi
+    fi
+fi
+
+# SHARE_DIR is eventually already set by the main script - but if not:
+GetShareDir() {
+    if TUI_SYS; then
+        search_list=("${SHARE_SYS_LIST[@]}")
+    else
+        search_list=("${SHARE_USR_LIST[@]}")
+    fi
+    # Use the first entry in LIST which exists
+    for dir in "${search_list[@]}"; do
+        if [[ -d "$dir" ]]; then
+            SHARE_DIR="$dir"
+            return 0
+        fi
+    done
+    SHARE_DIR="$SCRIPT_DIR/share"  # Fallback to script directory
+}
+if [[ -z "$SHARE_DIR" ]]; then
+    GetShareDir
+    # Check if SHARE_DIR exists - if not, create it
+    if [[ ! -d "$SHARE_DIR" ]]; then
+        if ! mkdir -p "$SHARE_DIR"; then
+            printf "${escRedBold}Error${escReset}: No valid SHARE_DIR: '$escBold$SHARE_DIR$escReset'\n\n" >&2
+            exit 1
+        fi
+    fi
+fi
+
+# LIB_DIR is eventually already set by the main script - but if not:
+GetLibDir() {
+    if TUI_SYS; then
+        search_list=("${LIB_SYS_LIST[@]}")
+    else
+        search_list=("${LIB_USR_LIST[@]}")
+    fi
+    # Use the first entry in LIST which exists
+    for dir in "${search_list[@]}"; do
+        if [[ -d "$dir" ]]; then
+            LIB_DIR="$dir"
+            return 0
+        fi
+    done
+    LIB_DIR="$SCRIPT_DIR/lib"  # Fallback to script directory
+}
+if [[ -z "$LIB_DIR" ]]; then
+    GetLibDir
+    # Check if LIB_DIR exists - if not, create it
+    if [[ ! -d "$LIB_DIR" ]]; then
+        if ! mkdir -p "$LIB_DIR"; then
+            printf "${escRedBold}Error${escReset}: No valid LIB_DIR: '$escBold$LIB_DIR$escReset'\n\n" >&2
+            exit 1
+        fi
+    fi
+fi
+
 ###  G L O B A L  -  Variables  ###
 
 
@@ -22,10 +202,11 @@ csi="${esc}["
 escBold="${csi}1m"
 escItalic="${csi}3m"
 escUnderline="${csi}4m"
+escUnderlineBold="${escUnderline}${escBold}"
 escDblUnderline="${csi}21m"
 escReverse="${csi}7m"
 escHidden="${csi}8m"
-escStrikethrough="${csi}9m"
+escStrike="${csi}9m"
 escBoldItalic="${csi}1;3m"
 escResetBold="${csi}22m"
 escResetFaint="${csi}22m"
@@ -33,7 +214,7 @@ escResetItalic="${csi}23m"
 escResetUnderline="${csi}24m"
 escResetReverse="${csi}27m"
 escResetHidden="${csi}28m"
-escResetStrikethrough="${csi}29m"
+escResetStrike="${csi}29m"
 escFaint="${csi}2m"
 escReset="${csi}0m"
 escGreen="${csi}32m"
@@ -61,33 +242,50 @@ escWARN="$escYellowBold☡$escReset"
 
 
 ###  F u n c t i o n s  - generic  ###
-SaveCursor() {
-    local idx="$1"
-    local prt="$2"
-    local pos
-    # Request cursor position from terminal
+GetCursor() {
+    # Get current cursor position
     exec < /dev/tty
     printf "${csi}6n"
+
     # Read response: ESC [ row ; col R
     IFS=';' read -sdR -r pos
     pos="${pos#*[}" # Remove ESC[
-    CURSOR_Y[$idx]="${pos%%;*}"      # Row
-    CURSOR_X[$idx]="${pos##*;}"      # Column
-    #exec <&-
-    if [[ -n "$prt" ]]; then
-        printf "$prt"
+    CURSOR_Y="${pos%%;*}"      # Row
+    CURSOR_X="${pos##*;}"      # Column
+}
+SaveCursor() {
+    # (re)set ram-cursor position from actual terminal position
+    local idx="$1"
+    local txtPRT="$2"
+    local pos
+
+    # Request cursor position from terminal
+    GetCursor
+    CURSOR_Y_ARR[idx]="$CURSOR_Y"      # Row
+    CURSOR_X_ARR[idx]="$CURSOR_X"      # Column
+
+    if [[ -n "$txtPRT" ]]; then
+        printf "$txtPRT"
     fi
 }
-RestoreCursor() {
+SaveCursorXY() {
+    # (re)set ram-cursor position manually
     local idx="$1"
-    # Set cursor position
-    printf "${csi}%d;%dH" "${CURSOR_Y[$idx]}" "${CURSOR_X[$idx]}"
+    local posX="$2"
+    local posY="$3"
+    CURSOR_Y_ARR[idx]="$posY"      # Row
+    CURSOR_X_ARR[idx]="$posX"      # Column
 }
 SetCursor() {
     local x="$1"
     local y="$2"
     # Set cursor position
-    printf "${csi}%d;%dH" "${$y}" "${$x}"
+    printf "${csi}%d;%dH" "$y" "$x"
+}
+RestoreCursor() {
+    local idx="$1"
+    # Set cursor position
+    SetCursor "${CURSOR_X_ARR[idx]}" "${CURSOR_Y_ARR[idx]}"
 }
 UpCursor() {
     local -i lines="$1"
@@ -218,7 +416,7 @@ checkRoot(){
     printAction
     printf "Check for$escBold root$escReset privileges... "
     # Check for root privileges
-    if [[ "$EUID" -ne 0 ]]; then
+    if ! TUI_SUDO; then
         printNOK
         printf "\n${escBold} Missing root privileges - start script with sudo...!$escReset\n\n" >&2
         exit 1
@@ -286,7 +484,6 @@ getValidPassword() {
                 echo
                 delLines 2
                 pwd2="$pwd"
-                echo
             fi
             echo
             if [[ "$pwd" != "$pwd2" ]]; then
@@ -306,9 +503,9 @@ getValidPassword() {
             break
         done
     fi
-    UpCursor 2
-    delLines 2
-    eval $3='$pwd'
+    UpCursor 3
+    delLines 3
+    eval "$3"='$pwd'
 }
 copyFiles() {
     # Function to loop copies
@@ -337,7 +534,7 @@ copyFiles() {
             # If file ends with ".sh", make it executable
             [[ "${destLST[$i]}" == *.sh ]] && chmod +x "${destLST[$i]}" 2>/dev/null || true
         fi
-        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
+        if [[ $((CURSOR_Y_ARR[1] + finalCNT + 1)) -gt TERM_Y ]]; then
             fold=1
         fi
     done
@@ -389,7 +586,7 @@ downloadFiles() {
             # If file ends with ".sh", make it executable
             [[ "$file" == *.sh ]] && chmod +x "$target/$file" 2>/dev/null || true
         fi
-        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
+        if [[ $((CURSOR_Y_ARR[1] + finalCNT + 1)) -gt TERM_Y ]]; then
             fold=1
         fi
     done
@@ -434,7 +631,7 @@ makeDirs(){
         else
             printf "\t$dir\n"
         fi
-        if [[ $((CURSOR_Y[1] + finalCNT + 1)) -gt TERM_Y ]]; then
+        if [[ $((CURSOR_Y_ARR[1] + finalCNT + 1)) -gt TERM_Y ]]; then
             fold=1
         fi
         sleep 0.25 

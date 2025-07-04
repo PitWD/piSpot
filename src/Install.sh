@@ -7,8 +7,20 @@ APP_STATE="dev" # alpha, beta, stable, dev
 APP_DATE="26.06.2025"
 
 
-# Get dir of script and set expected app.conf
+###  G L O B A L  -  Variables & tui.lib ###
+# Get dir of script
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TUI_AS_SYS="false"     # false = use user PATH, etc. ...
+source "./tui.lib" || {
+    printf "\t${escRedBold}Error${escReset}: Could not source tui.lib\n\n"
+    exit 1
+}
+
+linesCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
+finalCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
+###  G L O B A L  -  Variables  ###
+
+
 CONF_FILE="$SCRIPT_DIR/$APP_NAME.conf"
 CONF_PRT="$CONF_FILE"  # For printing with ~
 
@@ -20,6 +32,7 @@ fi
 actionLen=2  
 TARGET_DIR=""
 REPO_URL=""
+
 
 # List of required variables in APP_NAME.conf
 REQUIRED_VARS=(
@@ -52,6 +65,8 @@ REQUIRED_VARS=(
     "gsm_user"
     "gsm_password"
     "gsm_autoconnect"
+    "wlan_ifname"
+    "wlan_autoconnect"
 )
 # List of variables to inject into the dnsmasq restart scripts
 TWEAK_INJECT_VARS=(
@@ -106,29 +121,44 @@ GSM_INJECT_DEST=(
     "__PASSWORD__"
     "__AUTOCONNECT__"
 )
+WLAN_INJECT_VARS=(
+    "wlan_ifname"
+    "wlan_autoconnect"
+)
+WLAN_INJECT_DEST=(
+    "__IFNAME__"
+    "__AUTOCONNECT__"
+)
 
 # Management files with individual variables to inject
-tweak_manual_file="$SCRIPT_DIR/bin/tweak_manual.sh"
+tweak_manual_sh="$BIN_DIR/tweak_manual.sh"
 
 # List of local to copy files (templates to bin  /  )
 local_src_FILES=(
+    "$SCRIPT_DIR/tui.lib"
     "$SCRIPT_DIR/systemd/tweak.manual"
+    "$SCRIPT_DIR/gsm/gsm.new"
+    "$SCRIPT_DIR/gsm/gsm.del"
+    "$SCRIPT_DIR/gsm/gsm.up"
+    "$SCRIPT_DIR/gsm/gsm.down"
+    "$SCRIPT_DIR/wlan/wlan.new"
+    "$SCRIPT_DIR/wlan/wlan.del"
+    "$SCRIPT_DIR/wlan/wlan.up"
+    "$SCRIPT_DIR/wlan/wlan.down"
 )
 local_dest_FILES=(
-    "$tweak_manual_file"
+    "$BIN_DIR/tui.lib"
+    "$tweak_manual_sh"
+    "$BIN_DIR/gsm_new.sh"
+    "$BIN_DIR/gsm_del.sh"
+    "$BIN_DIR/gsm_up.sh"
+    "$BIN_DIR/gsm_down.sh"
+    "$BIN_DIR/wlan_new.sh"
+    "$BIN_DIR/wlan_del.sh"
+    "$BIN_DIR/wlan_up.sh"
+    "$BIN_DIR/wlan_down.sh"
 )
 ###  A P P  D E F I N I T I O N S  ###
-
-
-###  G L O B A L  -  Variables  ###
-source "./tui.lib" || {
-    printf "Error: Could not source tui.lib\n"
-    exit 1
-}
-
-linesCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
-finalCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
-###  G L O B A L  -  Variables  ###
 
 
 ###  M a i n  ###
@@ -430,7 +460,9 @@ fi
 # copy local files from local_src_FILES to local_dest_FILES
 copyFiles "local_src_FILES[@]" "local_dest_FILES[@]"
 # inject (where necessary) settings into the copies
-injectVARS "$tweak_manual_file" "TWEAK_INJECT_VARS[@]" "TWEAK_INJECT_DEST[@]"
+injectVARS "$tweak_manual_sh" "TWEAK_INJECT_VARS[@]" "TWEAK_INJECT_DEST[@]"
+
+# Loop gsm variables and inject them into the gsm scripts
 
 printAction
 printf "Upping Access Point '$SSID' @ '$wifi_ifname'... "
