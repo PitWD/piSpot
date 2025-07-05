@@ -145,6 +145,7 @@ local_src_FILES=(
     "$SCRIPT_DIR/wlan/wlan.del"
     "$SCRIPT_DIR/wlan/wlan.up"
     "$SCRIPT_DIR/wlan/wlan.down"
+    "$SCRIPT_DIR/wlan/wlan.select"
 )
 local_dest_FILES=(
     "$BIN_DIR/tui.lib"
@@ -157,6 +158,7 @@ local_dest_FILES=(
     "$BIN_DIR/wlan_del.sh"
     "$BIN_DIR/wlan_up.sh"
     "$BIN_DIR/wlan_down.sh"
+    "$BIN_DIR/wlan_select.sh"
 )
 ###  A P P  D E F I N I T I O N S  ###
 

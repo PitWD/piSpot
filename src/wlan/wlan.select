@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Template to delete WLAN CLIENT connection from NetworkManager
+# Template to select WLAN CLIENT connection from NetworkManager
 APP_NAME="piSpot"
 APP_VERSION="0.0.1"
 APP_STATE="dev" # alpha, beta, stable, dev
@@ -27,7 +27,7 @@ echo
 GetTermSize
 
 # Header
-printf "$escCyanBold 🛈 $escReset ${escUnderline}Delete NetworkManager WLAN Connection...$escReset "
+printf "$escCyanBold 🛈 $escReset ${escUnderline}Select / Reconnect NetworkManager WLAN Connection...$escReset "
 SaveCursor 0 "\n\n"
 ((linesCNT += 3)) # leading line, header line, and trailing line
 
@@ -75,20 +75,18 @@ SELECTED_LINE="${NETWORKS[$((SSID_INDEX-1))]}"
 wlan_ssid=$(echo "$SELECTED_LINE" | awk '{print $1}')
 
 echo
-# Remove oconnection
+
 printAction
-printf "Removing '$wlan_ssid'... "
-SaveCursor 1 "\n"
-SaveCursor 2 "\t"
-if nmcli connection delete "$wlan_ssid"; then
+printf "Upping connection... "
+SaveCursor 1 "\n\t"
+if nmcli connection up "$wlan_ssid"; then
+    SaveCursor 2
     RestoreCursor 1
     printOK
     RestoreCursor 0
     printOK
     RestoreCursor 2
-    echo
 else
-    SaveCursor 2
     RestoreCursor 1
     printNOK
     RestoreCursor 0

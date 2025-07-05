@@ -84,6 +84,7 @@ wlan_FILES=(
     "wlan.del"
     "wlan.up"
     "wlan.down"
+    "wlan.select"
 )
 # List of gsm files (templates)
 gsm_FILES=(
