@@ -10,7 +10,7 @@ APP_DATE="26.06.2025"
 ###  G L O B A L  -  Variables & tui.lib ###
 # Get dir of script
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TUI_AS_SYS="false"     # false = use user PATH, etc. ...
+TUI_AS_SYS="true"     # false = use user PATH, etc. ...
 source "./tui.lib" || {
     printf "\t${escRedBold}Error${escReset}: Could not source tui.lib\n\n"
     exit 1
@@ -95,12 +95,14 @@ TWEAK_INJECT_DEST=(
     "__DNSPIDFILE__"
     "__TWEAKDNSMASQ__"
 )
+# List of variables to inject into the tweak piSpot.service file
 SYSD_INJECT_VARS=(
     "TWEAK_TARGET_DNS"
 )
 SYSD_INJECT_DEST=(
     "__TWEAKTARGETDNS__"
 )
+# List of variables to inject into the (manual) gsm scripts
 GSM_INJECT_VARS=(
     "gsm_ifname"
     "gsm_name"
@@ -121,6 +123,7 @@ GSM_INJECT_DEST=(
     "__PASSWORD__"
     "__AUTOCONNECT__"
 )
+# List of variables to inject into the (manual) wlan scripts
 WLAN_INJECT_VARS=(
     "wlan_ifname"
     "wlan_autoconnect"
@@ -133,32 +136,45 @@ WLAN_INJECT_DEST=(
 # Management files with individual variables to inject
 tweak_manual_sh="$BIN_DIR/tweak_manual.sh"
 
-# List of local to copy files (templates to bin  /  )
+# List of local to copy files (not to inject & single inject files /  )
 local_src_FILES=(
     "$SCRIPT_DIR/tui.lib"
     "$SCRIPT_DIR/systemd/tweak.manual"
-    "$SCRIPT_DIR/gsm/gsm.new"
-    "$SCRIPT_DIR/gsm/gsm.del"
-    "$SCRIPT_DIR/gsm/gsm.up"
-    "$SCRIPT_DIR/gsm/gsm.down"
+)
+local_dest_FILES=(
+    "$BIN_DIR/tui.lib"
+    "$tweak_manual_sh"
+)
+
+FILES_LISTS=(
+    "WLAN"
+    "GSM"
+)
+WLAN_src_FILES=(
     "$SCRIPT_DIR/wlan/wlan.new"
     "$SCRIPT_DIR/wlan/wlan.del"
     "$SCRIPT_DIR/wlan/wlan.up"
     "$SCRIPT_DIR/wlan/wlan.down"
     "$SCRIPT_DIR/wlan/wlan.select"
 )
-local_dest_FILES=(
-    "$BIN_DIR/tui.lib"
-    "$tweak_manual_sh"
-    "$BIN_DIR/gsm_new.sh"
-    "$BIN_DIR/gsm_del.sh"
-    "$BIN_DIR/gsm_up.sh"
-    "$BIN_DIR/gsm_down.sh"
+WLAN_dest_FILES=(
     "$BIN_DIR/wlan_new.sh"
     "$BIN_DIR/wlan_del.sh"
     "$BIN_DIR/wlan_up.sh"
     "$BIN_DIR/wlan_down.sh"
     "$BIN_DIR/wlan_select.sh"
+)
+GSM_src_FILES=(
+    "$SCRIPT_DIR/gsm/gsm.new"
+    "$SCRIPT_DIR/gsm/gsm.del"
+    "$SCRIPT_DIR/gsm/gsm.up"
+    "$SCRIPT_DIR/gsm/gsm.down"
+)
+GSM_dest_FILES=(
+    "$BIN_DIR/gsm_new.sh"
+    "$BIN_DIR/gsm_del.sh"
+    "$BIN_DIR/gsm_up.sh"
+    "$BIN_DIR/gsm_down.sh"
 )
 ###  A P P  D E F I N I T I O N S  ###
 
@@ -464,7 +480,15 @@ copyFiles "local_src_FILES[@]" "local_dest_FILES[@]"
 # inject (where necessary) settings into the copies
 injectVARS "$tweak_manual_sh" "TWEAK_INJECT_VARS[@]" "TWEAK_INJECT_DEST[@]"
 
-# Loop gsm variables and inject them into the gsm scripts
+# Loop FILES_LISTS to get the to copy and the to inject lists
+for list in "${FILES_LISTS[@]}"; do
+    src_var="${list}_src_FILES[@]"
+    dest_var="${list}_dest_FILES[@]"
+    # copy files from src to dest
+    copyFiles "$src_var" "$dest_var"
+    # inject variables into the copied files
+    injectVARS "${!dest_var}" "${list}_INJECT_VARS[@]" "${list}_INJECT_DEST[@]"
+done
 
 printAction
 printf "Upping Access Point '$SSID' @ '$wifi_ifname'... "
