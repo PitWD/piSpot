@@ -12,15 +12,15 @@ APP_DATE="26.06.2025"
 # This script is just for development purposes and should not be used in "the wild".
 
 # Manually download the GetDevSetup.sh script and run it to get the latest files and structure.
-    # wget -q -O GetDevSetup.sh https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/GetDevSetup.sh
+    # wget -q -O GetDevSetup.sh https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/GetNextSetup.sh
     # sudo bash GetDevSetup.sh
 
 # Automatically download and run the GetDevSetup.sh script to get the latest files and structure.
-    # sudo wget -q -O GetDevSetup.sh https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/GetDevSetup.sh | bash
+    # sudo wget -q -O GetDevSetup.sh https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/GetNextSetup.sh | bash
 
 
 ###  A P P  D E F I N I T I O N S  ###
-REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src"
+REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/versions/next/src"
 # REPO_URL="file:///home/pit/test/piSpot.SETUP.DIR" # For local testing
 
 # Get dir of script and set expected app.conf

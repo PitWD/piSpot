@@ -1,0 +1,102 @@
+#!/bin/bash
+
+# Template to select WLAN CLIENT connection from NetworkManager
+APP_NAME="piSpot"
+APP_VERSION="0.0.1"
+APP_STATE="dev" # alpha, beta, stable, dev
+APP_DATE="26.06.2025"
+
+# These placeholders will be set by the Install.sh script
+wlan_ifname="__IFNAME__" # e.g. "wlan0" or "wlan1"
+wlan_autoconnect="__AUTOCONNECT__"
+
+
+###  G L O B A L  -  Variables  ###
+source "./tui.lib" || {
+    printf "\tError: Could not source tui.lib\n\n"
+    exit 1
+}
+
+linesCNT=1
+finalCNT=1
+###  G L O B A L  -  Variables  ###
+
+###  M a i n  ###
+clear
+echo
+GetTermSize
+
+# Header
+printf "$escCyanBold 🛈 $escReset ${escUnderline}Select / Reconnect NetworkManager WLAN Connection...$escReset "
+SaveCursor 0 "\n\n"
+((linesCNT += 3)) # leading line, header line, and trailing line
+
+# Check the interface
+printAction
+printf "Check Interface '$escBold$wlan_ifname$escReset'... "
+SaveCursor 1
+if ! ip link show "$wlan_ifname" >/dev/null 2>&1; then
+    RestoreCursor 0
+    printNOK
+    RestoreCursor 1
+    printNOK
+    print "\n\t${escRED}ERROR$escReset Interface '$wlan_ifname' not found."
+    echo
+    exit 1
+fi
+printOK
+echo
+
+# List existing connections
+printAction
+printf "Saved connection for '$escBold$wlan_ifname$escReset'... "
+SaveCursor 1
+readarray -t NETWORKS < <(nmcli -f NAME,SSID,TYPE connection show | grep "wifi" | grep '"$wlan_ifname"' | sort)
+if [[ ${#NETWORKS[@]} -eq 0 ]]; then
+    RestoreCursor 0
+    printNOK
+    RestoreCursor 1
+    printNOK
+    print "\n\t${escRED}ERROR$escReset No saved connections for '$wlan_ifname'."
+    echo
+    exit 1
+fi
+printOK
+echo
+printf "$escUnderlineBold Available connections$escReset:\n"
+for i in "${!NETWORKS[@]}"; do
+    SSID_LINE=$(echo "${NETWORKS[$i]}" | awk '{$1=$1};1')
+    printf "\t[%2d] %s\n" $((i+1)) "$SSID_LINE"
+done
+echo
+# Select network
+read -rp "\tSelect number of the desired connection: " SSID_INDEX
+SELECTED_LINE="${NETWORKS[$((SSID_INDEX-1))]}"
+wlan_ssid=$(echo "$SELECTED_LINE" | awk '{print $1}')
+
+echo
+
+printAction
+printf "Upping connection... "
+SaveCursor 1 "\n\t"
+if nmcli connection up "$wlan_ssid"; then
+    SaveCursor 2
+    RestoreCursor 1
+    printOK
+    RestoreCursor 0
+    printOK
+    RestoreCursor 2
+else
+    RestoreCursor 1
+    printNOK
+    RestoreCursor 0
+    printNOK
+    RestoreCursor 2
+    echo
+    exit 1
+fi
+
+echo
+exit 0
+
+

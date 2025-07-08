@@ -1,0 +1,64 @@
+#!/bin/bash
+
+# Template to Delete NetworkManager GSM/WWAN connection
+APP_NAME="piSpot"
+APP_VERSION="0.0.1"
+APP_STATE="dev" # alpha, beta, stable, dev
+APP_DATE="26.06.2025"
+
+# These placeholders will be set by the Install.sh script
+gsm_ifname="__IFNAME__" # e.g. "ttyUSB0" or "ttyACM0" or "*"
+gsm_name="__NAME__"
+gsm_apn="__APN__"
+gsm_pin="__PIN__"
+gsm_dial="__DIAL__"    
+gsm_user="__USER__"
+gsm_password="__PASSWORD__"
+gsm_autoconnect="__AUTOCONNECT__"
+
+
+###  G L O B A L  -  Variables  ###
+source "./tui.lib" || {
+    printf "Error: Could not source tui.lib\n"
+    exit 1
+}
+
+linesCNT=1
+finalCNT=1
+###  G L O B A L  -  Variables  ###
+
+
+###  M a i n  ###
+clear
+echo
+GetTermSize
+
+# Header
+printf "$escCyanBold 🛈 $escReset ${escUnderline}DELETE NetworkManager GSM/WWAN Connection '$escBold$gsm_name$escResetBold'...$escReset "
+SaveCursor 0 "\n\n"
+((linesCNT += 3)) # leading line, header line, and trailing line
+
+
+printAction
+printf "Delete connection... "
+SaveCursor 1 "\n\t"
+if ! nmcli connection down "$gsm_name"; then
+    SaveCursor 2
+    RestoreCursor 1
+    printNOK
+    RestoreCursor 0
+    printNOK
+    RestoreCursor 2
+    echo
+    exit 1
+else
+    SaveCursor 2
+    RestoreCursor 1
+    printOK
+    RestoreCursor 0
+    printOK
+    RestoreCursor 2
+fi
+
+echo
+exit 0

@@ -1,0 +1,176 @@
+#!/bin/bash
+
+# Template to add WLAN CLIENT connection to NetworkManager
+APP_NAME="piSpot"
+APP_VERSION="0.0.1"
+APP_STATE="dev" # alpha, beta, stable, dev
+APP_DATE="26.06.2025"
+
+# These placeholders will be set by the Install.sh script
+wlan_ifname="__IFNAME__" # e.g. "wlan0" or "wlan1"
+wlan_autoconnect="__AUTOCONNECT__"
+
+
+###  G L O B A L  -  Variables  ###
+source "./tui.lib" || {
+    printf "\tError: Could not source tui.lib\n\n"
+    exit 1
+}
+
+linesCNT=1
+finalCNT=1
+###  G L O B A L  -  Variables  ###
+
+###  M a i n  ###
+clear
+echo
+GetTermSize
+
+# Header
+printf "$escCyanBold 🛈 $escReset ${escUnderline}New NetworkManager WLAN Connection...$escReset "
+SaveCursor 0 "\n\n"
+((linesCNT += 3)) # leading line, header line, and trailing line
+
+# Check the interface
+printAction
+printf "Check Interface '$escBold$wlan_ifname$escReset'... "
+SaveCursor 1
+if ! ip link show "$wlan_ifname" >/dev/null 2>&1; then
+    RestoreCursor 0
+    printNOK
+    RestoreCursor 1
+    printNOK
+    print "\n\t${escRED}ERROR$escReset Interface '$wlan_ifname' not found."
+    echo
+    exit 1
+fi
+printOK
+echo
+
+# Scan for available networks
+printAction
+printf "Scanning for available networks on '$escBold$wlan_ifname$escReset'... "
+SaveCursor 1
+nmcli device wifi rescan ifname "$wlan_ifname" >/dev/null 2>&1
+sleep 1 # Give it a moment to scan
+# Show SSID + SECURITY + SIGNAL
+readarray -t NETWORKS < <(nmcli -f SSID,SECURITY,SIGNAL device wifi list ifname "$wlan_ifname" | tail -n +2 | sort -r -k3)
+if [[ ${#NETWORKS[@]} -eq 0 ]]; then
+    RestoreCursor 0
+    printNOK
+    RestoreCursor 1
+    printNOK
+    print "\n\t${escRED}ERROR$escReset No networks found."
+    echo
+    exit 1
+fi
+printOK
+echo
+printf "$escUnderlineBold Available networks$escReset:\n"
+for i in "${!NETWORKS[@]}"; do
+    SSID_LINE=$(echo "${NETWORKS[$i]}" | awk '{$1=$1};1') 
+    printf "\t[%2d] %s\n" $((i+1)) "$SSID_LINE"
+done
+echo
+# Select network
+read -rp "\tSelect number of the desired network: " SSID_INDEX
+SELECTED_LINE="${NETWORKS[$((SSID_INDEX-1))]}"
+wlan_ssid=$(echo "$SELECTED_LINE" | awk '{print $1}')
+wlan_security=$(echo "$SELECTED_LINE" | awk '{print $2}')
+if [[ "$wlan_security" == "--" || -z "$wlan_security" ]]; then
+    wlan_security="none"
+else
+    printAction
+    printf "Check Password for '$escBold$wlan_ssid$escReset'... "
+    SaveCursor 1
+    if [[ "$wlan_password" == "0000" ]]; then
+        printWARN
+        echo
+        getValidPassword "$wlan_password" "0000" wlan_password 1 "Password" " "
+        RestoreCursor 1
+    fi
+    printOK
+    echo
+fi
+echo
+
+strWLAN="con-name $wlan_ssid"
+strWLAN+=' ifname "'$wlan_ifname'"'
+strWLAN+=" ssid $wlan_ssid"
+if [[ "$wlan_security" != "none" ]]; then
+    strWLAN+=" wifi-sec.key-mgmt $wlan_security"
+    if [[ -n "$wlan_password" ]]; then
+        strWLAN+=" wifi-sec.psk '$wlan_password'"
+    else
+        strWLAN+=" wifi-sec.psk ''"
+    fi
+fi
+strWLAN+=" autoconnect $wlan_autoconnect"
+echo
+echo "$strWLAN"
+echo
+# If wlan_ssid is already a saved NetworkManager connection, remove old connection
+if nmcli connection show "$wlan_ssid" &>/dev/null; then  
+    printAction
+    printf "Old connection '$wlan_ssid' exists, removing it... "
+    SaveCursor 1 "\n\t"
+    if nmcli connection delete "$wlan_ssid"; then
+        SaveCursor 2
+        RestoreCursor 1
+        printOK
+        RestoreCursor 2
+    else
+        SaveCursor 2
+        RestoreCursor 1
+        printNOK
+        RestoreCursor 0
+        printNOK
+        RestoreCursor 2
+        echo
+        exit 1
+    fi
+fi
+
+printAction
+printf "Adding new connection... "
+SaveCursor 1 "\n\t"
+if nmcli connection add $strWLAN; then
+    SaveCursor 2
+    RestoreCursor 1
+    printOK
+    RestoreCursor 2
+else
+    SaveCursor 2
+    RestoreCursor 1
+    printNOK
+    RestoreCursor 0
+    printNOK
+    RestoreCursor 2
+    echo
+    exit 1
+fi
+
+printAction
+printf "Activating new connection... "
+SaveCursor 1 "\n\t"
+if nmcli connection up "$wlan_ssid"; then
+    SaveCursor 2
+    RestoreCursor 1
+    printOK
+    RestoreCursor 0
+    printOK
+    RestoreCursor 2
+else
+    RestoreCursor 1
+    printNOK
+    RestoreCursor 0
+    printNOK
+    RestoreCursor 2
+    echo
+    exit 1
+fi
+
+echo
+exit 0
+
+
