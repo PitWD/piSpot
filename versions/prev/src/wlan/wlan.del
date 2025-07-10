@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Template to select WLAN CLIENT connection from NetworkManager
+# Template to delete WLAN CLIENT connection from NetworkManager
 APP_NAME="piSpot"
 APP_VERSION="0.0.1"
 APP_STATE="dev" # alpha, beta, stable, dev
@@ -12,8 +12,7 @@ wlan_autoconnect="__AUTOCONNECT__"
 
 
 ###  G L O B A L  -  Variables  ###
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/tui.lib" || {
+source "./tui.lib" || {
     printf "\tError: Could not source tui.lib\n\n"
     exit 1
 }
@@ -28,7 +27,7 @@ echo
 GetTermSize
 
 # Header
-printf "$escCyanBold 🛈 $escReset ${escUnderline}Select / Reconnect NetworkManager WLAN Connection...$escReset "
+printf "$escCyanBold 🛈 $escReset ${escUnderline}Delete NetworkManager WLAN Connection...$escReset "
 SaveCursor 0 "\n\n"
 ((linesCNT += 3)) # leading line, header line, and trailing line
 
@@ -64,34 +63,30 @@ if [[ ${#NETWORKS[@]} -eq 0 ]]; then
 fi
 printOK
 echo
-printf "\t     ${escUnderlineBold}Available networks$escReset:\n"
+printf "$escUnderlineBold Available connections$escReset:\n"
 for i in "${!NETWORKS[@]}"; do
-    SSID_LINE=$(echo "${NETWORKS[$i]}" | awk '{$1=$1};1') 
+    SSID_LINE=$(echo "${NETWORKS[$i]}" | awk '{$1=$1};1')
     printf "\t[%2d] %s\n" $((i+1)) "$SSID_LINE"
 done
+echo
 # Select network
-printf "\t${escItalic}Select number or ENTER to cancel:$escReset "
-read SSID_INDEX
-# Check if SSID_INDEX isn't valid
-if [[ -z "$SSID_INDEX" || ! "$SSID_INDEX" =~ ^[0-9]+$ || "$SSID_INDEX" -lt 1 || "$SSID_INDEX" -gt ${#NETWORKS[@]} ]]; then
-    echo
-    exit 0
-fi
+read -rp "\tSelect number of the desired connection: " SSID_INDEX
 SELECTED_LINE="${NETWORKS[$((SSID_INDEX-1))]}"
 wlan_ssid=$(echo "$SELECTED_LINE" | awk '{print $1}')
 
 echo
-
+# Remove oconnection
 printAction
-printf "Upping connection... "
-SaveCursor 1 "\n\t"
-if nmcli connection up "$wlan_ssid"; then
-    SaveCursor 2
+printf "Removing '$wlan_ssid'... "
+SaveCursor 1 "\n"
+SaveCursor 2 "\t"
+if nmcli connection delete "$wlan_ssid"; then
     RestoreCursor 1
     printOK
     RestoreCursor 0
     printOK
     RestoreCursor 2
+    echo
 else
     SaveCursor 2
     RestoreCursor 1

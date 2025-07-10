@@ -19,8 +19,9 @@ gsm_autoconnect="__AUTOCONNECT__"
 
 
 ###  G L O B A L  -  Variables  ###
-source "./tui.lib" || {
-    printf "Error: Could not source tui.lib\n"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/tui.lib" || {
+    printf "\tError: Could not source tui.lib\n\n"
     exit 1
 }
 

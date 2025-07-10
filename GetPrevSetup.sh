@@ -8,11 +8,12 @@ APP_DATE="26.06.2025"
 
 
 # This script gets all files to get a piSpot installation done.
-# This script loads the NEXT files from the piSpot repository on GitHub.
+# This script loads the PREVIOUS files from the piSpot repository on GitHub.
 # This script is just for development purposes and should not be used in "the wild".
 
+
 ###  A P P  D E F I N I T I O N S  ###
-REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/versions/next/src"
+REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/versions/prev/src"
 # REPO_URL="file:///home/pit/test/piSpot.SETUP.DIR" # For local testing
 
 # Get dir of script and set expected app.conf

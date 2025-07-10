@@ -18,7 +18,7 @@ declare -i finalCNT=1 # same but for functions - fixed values (functions working
 
 # directory of lib calling script (in most cases already set by the calling script)
 if [[ -z "$SCRIPT_DIR" ]]; then
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
 # TUI_DIR like SCRIPT_DIR, but for printing reasons -- replace /home/username with ~
 TUI_DIR="$SCRIPT_DIR"
@@ -620,15 +620,21 @@ makeDirs(){
     printAction "Creating & Checking$escBlueBold $cnt ${escReset}Directories... "
     SaveCursor 1 "\n"
     for dir in "${dirsList[@]}"; do
+
+        DIR_PRT="$dir"
+        if [[ "$DIR_PRT" =~ ^/home/([^/]+) ]]; then
+            DIR_PRT="~${DIR_PRT#"/home/${BASH_REMATCH[1]}"}"
+        fi
+
         if [[ $fold -eq 1 ]]; then
             UpCursor 1
             delLines 1
         fi
         if ! mkdir -p "$dir"; then
-            printf "\t$escRed$dir$escReset\n"
+            printf "\t$escRed$DIR_PRT$escReset\n"
             locCnt=$((locCnt + 1))
         else
-            printf "\t$dir\n"
+            printf "\t$DIR_PRT\n"
         fi
         if [[ $((CURSOR_Y_ARR[1] + finalCNT + 1)) -gt TERM_Y ]]; then
             fold=1

@@ -20,8 +20,8 @@ APP_DATE="26.06.2025"
 
 
 ###  A P P  D E F I N I T I O N S  ###
-REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src"
-# REPO_URL="file:///home/pit/test/piSpot.SETUP.DIR" # For local testing
+#REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src"
+REPO_URL="file:///home/pit/test/piSpot.SETUP.DIR" # For local testing
 
 # Get dir of script and set expected app.conf
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -362,15 +362,21 @@ makeDirs(){
     printAction "Creating & Checking$escBlueBold $cnt ${escReset}Directories... "
     SaveCursor 1 "\n"
     for dir in "${dirsList[@]}"; do
+
+        DIR_PRT="$dir"
+        if [[ "$DIR_PRT" =~ ^/home/([^/]+) ]]; then
+            DIR_PRT="~${DIR_PRT#"/home/${BASH_REMATCH[1]}"}"
+        fi
+
         if [[ $fold -eq 1 ]]; then
             UpCursor 1
             delLines 1
         fi
         if ! mkdir -p "$dir"; then
-            printf "\t$escRed$dir$escReset\n"
+            printf "\t$escRed$DIR_PRT$escReset\n"
             locCnt=$((locCnt + 1))
         else
-            printf "\t$dir\n"
+            printf "\t$DIR_PRT\n"
         fi
         if [[ $((CURSOR_Y_ARR[1] + finalCNT + 1)) -gt TERM_Y ]]; then
             fold=1

@@ -12,8 +12,7 @@ wlan_autoconnect="__AUTOCONNECT__"
 
 
 ###  G L O B A L  -  Variables  ###
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/tui.lib" || {
+source "./tui.lib" || {
     printf "\tError: Could not source tui.lib\n\n"
     exit 1
 }

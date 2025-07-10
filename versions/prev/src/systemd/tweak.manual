@@ -1,0 +1,65 @@
+#! /bin/bash
+
+# This script (re)starts the dnsmasq service with tweaked parameters
+# As template @ ./systemd/tweak.manual
+# Tweaked @ ./bin/tweak_manual.sh
+
+# These placeholders will be set by the Install.sh script
+wifi_ifname="__IFACE__"
+ipv4_address="__IPV4ADDRESS__"
+ipv4_dns="__IPV4DNS__"
+ipv6_dns="__IPV6DNS__"
+dhcp4_start="__DHCP4START__"
+dhcp4_stop="__DHCP4STOP__"
+dhcp4_leasetime="__DHCP4LEASETIME__"
+dhcp4_leasefile="__DHCP4LEASEFILE__"
+dns_port="__DNSPORT__"
+dns_pidfile="__DNSPIDFILE__"
+TWEAK_DNSMASQ="__TWEAKDNSMASQ__"
+
+# Combine and make list of comma separated upstream DNS servers
+dns_upstream="$ipv4_dns,$ipv6_dns"
+IFS=',' read -r -a DNSservers <<< "$dns_upstream"
+
+strDNSmasq=" --interface=$wifi_ifname"
+strDNSmasq+=" --listen-address=$ipv4_address"
+strDNSmasq+=" --dhcp-range=$dhcp4_start,$dhcp4_end,$dhcp4_leasetime"
+strDNSmasq+=" --port=$dns_port"
+for server in "${DNSservers[@]}"; do
+    strDNSmasq+=" --server=$server"
+done
+strDNSmasq+=" --dhcp-leasefile=$dhcp4_leasefile"
+strDNSmasq+=" --pid-file=$dns_pidfile"
+strDNSmasq+=" --no-hosts"
+strDNSmasq+=" --keep-in-foreground"
+strDNSmasq+=" --bind-interfaces"
+strDNSmasq+=" --except-interface=lo"
+strDNSmasq+=" --clear-on-reload"
+strDNSmasq+=" --strict-order"
+strDNSmasq+=" --conf-file=/dev/null"
+
+
+#for i in {1..120}; do
+    # Check if "ps -ef contains dns_pidfile
+    #if pgrep -f $dns_pidfile; then
+        pkill -f $dns_pidfile
+        if [ $? -ne 0 ]; then
+            echo " Failed to kill NetworkManagers dnsmasq." >&2
+            #exit 1
+        else
+            echo " NetworkManagers dnsmasq killed."
+        fi
+        # Start dnsmasq with the new parameters
+        $TWEAK_DNSMASQ $strDNSmasq &
+        if [ $? -ne 0 ]; then
+            echo " Failed to start piSpots dnsmasq with new parameters." >&2
+            exit 1
+        fi
+        echo " Tweaked NetworkManager dnsmasq restarted by piSpot."
+        exit 0
+    #fi
+    #sleep 0.5
+#done
+
+#echo " piSpots dnsmasq restarter failed to restart dnsmasq." >&2
+#exit 1

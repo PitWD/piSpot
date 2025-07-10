@@ -12,8 +12,7 @@ wlan_autoconnect="__AUTOCONNECT__"
 
 
 ###  G L O B A L  -  Variables  ###
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/tui.lib" || {
+source "./tui.lib" || {
     printf "\tError: Could not source tui.lib\n\n"
     exit 1
 }
@@ -64,19 +63,14 @@ if [[ ${#NETWORKS[@]} -eq 0 ]]; then
 fi
 printOK
 echo
-printf "\t     ${escUnderlineBold}Available networks$escReset:\n"
+printf "$escUnderlineBold Available connections$escReset:\n"
 for i in "${!NETWORKS[@]}"; do
-    SSID_LINE=$(echo "${NETWORKS[$i]}" | awk '{$1=$1};1') 
+    SSID_LINE=$(echo "${NETWORKS[$i]}" | awk '{$1=$1};1')
     printf "\t[%2d] %s\n" $((i+1)) "$SSID_LINE"
 done
+echo
 # Select network
-printf "\t${escItalic}Select number or ENTER to cancel:$escReset "
-read SSID_INDEX
-# Check if SSID_INDEX isn't valid
-if [[ -z "$SSID_INDEX" || ! "$SSID_INDEX" =~ ^[0-9]+$ || "$SSID_INDEX" -lt 1 || "$SSID_INDEX" -gt ${#NETWORKS[@]} ]]; then
-    echo
-    exit 0
-fi
+read -rp "\tSelect number of the desired connection: " SSID_INDEX
 SELECTED_LINE="${NETWORKS[$((SSID_INDEX-1))]}"
 wlan_ssid=$(echo "$SELECTED_LINE" | awk '{print $1}')
 
@@ -93,7 +87,6 @@ if nmcli connection up "$wlan_ssid"; then
     printOK
     RestoreCursor 2
 else
-    SaveCursor 2
     RestoreCursor 1
     printNOK
     RestoreCursor 0

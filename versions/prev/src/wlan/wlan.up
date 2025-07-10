@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Template to temporary disable the WLAN-CLIENT interface in NetworkManager
+# Template to enable the WLAN-CLIENT interface in NetworkManager
 APP_NAME="piSpot"
 APP_VERSION="0.0.1"
 APP_STATE="dev" # alpha, beta, stable, dev
@@ -12,8 +12,7 @@ wlan_autoconnect="__AUTOCONNECT__"
 
 
 ###  G L O B A L  -  Variables  ###
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/tui.lib" || {
+source "./tui.lib" || {
     printf "\tError: Could not source tui.lib\n\n"
     exit 1
 }
@@ -28,7 +27,7 @@ echo
 GetTermSize
 
 # Header
-printf "$escCyanBold 🛈 $escReset ${escUnderline}Disabling WLAN(client) interface...$escReset "
+printf "$escCyanBold 🛈 $escReset ${escUnderline}Enabling WLAN(client) interface...$escReset "
 SaveCursor 0 "\n\n"
 ((linesCNT += 3)) # leading line, header line, and trailing line
 # Check the interface
@@ -49,9 +48,9 @@ echo
 
 # Disable the interface
 printAction
-printf "Disabling interface '$escBold$wlan_ifname$escReset'... "
+printf "Enabling interface '$escBold$wlan_ifname$escReset'... "
 SaveCursor 1 "\n\t"
-if nmcli device disconnect "$wlan_ifname"; then
+if nmcli device connect "$wlan_ifname"; then
     SaveCursor 2
     RestoreCursor 1
     printOK
@@ -73,9 +72,9 @@ fi
 if [[ "$wlan_autoconnect" == "yes" ]]; then
     UpCursor 1
     printAction
-    printf "Setting autoconnect to 'no' for interface '$escBold$wlan_ifname$escReset'... "
+    printf "Setting autoconnect to 'yes' for interface '$escBold$wlan_ifname$escReset'... "
     SaveCursor 1 "\n\t"
-    if nmcli connection modify "$wlan_ifname" connection.autoconnect no; then
+    if nmcli connection modify "$wlan_ifname" connection.autoconnect yes; then
         SaveCursor 2
         RestoreCursor 1
         printOK
