@@ -100,9 +100,13 @@ fi
 printOK
 echo
 
+# Compatible with mmcli "*" as interface name for using the 1st available interface
+if [[ "$gsm_ifname" == "*" ]]; then
+    gsm_ifname=$(nmcli device | awk '/gsm|wwan/ {print $1; exit}')
+fi
 
 strGSM="con-name $gsm_name"
-strGSM+=' ifname "'$gsm_ifname'"'
+strGSM+=" ifname $gsm_ifname"
 strGSM+=" apn $gsm_apn"
 if [[ $gsm_pin != "" ]]; then
     strGSM+=" gsm.pin $gsm_pin"
