@@ -20,8 +20,8 @@ APP_DATE="26.06.2025"
 
 
 ###  A P P  D E F I N I T I O N S  ###
-#REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src"
-REPO_URL="file:///home/pit/test/piSpot.SETUP.DIR" # For local testing
+REPO_URL="https://raw.githubusercontent.com/PitWD/piSpot/refs/heads/main/src"
+#REPO_URL="file:///home/pit/test/piSpot.SETUP.DIR" # For local testing
 
 # Get dir of script and set expected app.conf
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

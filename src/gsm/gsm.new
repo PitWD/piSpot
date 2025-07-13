@@ -51,6 +51,7 @@ if [[ "$gsm_pin" == "0000" ]]; then
 fi
 printOK
 echo
+delLines 1
 
 printAction
 printf "Check APN... "
@@ -63,6 +64,7 @@ if [[ -z "$gsm_apn" || "$gsm_apn" == "0000" ]]; then
 fi
 printOK
 echo
+delLines 1
 
 printAction
 printf "Check Dial Number... "
@@ -75,6 +77,7 @@ if [[ "$gsm_dial" == "0000" ]]; then
 fi
 printOK
 echo
+delLines 1
 
 printAction
 printf "Check User Name... "
@@ -87,6 +90,7 @@ if [[ "$gsm_user" == "0000" ]]; then
 fi
 printOK
 echo
+delLines 1
 
 printAction
 printf "Check Password... "
@@ -94,11 +98,12 @@ SaveCursor 1
 if [[ "$gsm_password" == "0000" ]]; then
     printWARN
     echo
-    getValidPassword "$gsm_password" "0000" gsm_password 1 "Password" " "
+    getValidPassword "$gsm_password" "0000" gsm_password 1 "Password"
     RestoreCursor 1
 fi
 printOK
 echo
+delLines 1
 
 # Compatible with mmcli "*" as interface name for using the 1st available interface
 if [[ "$gsm_ifname" == "*" ]]; then

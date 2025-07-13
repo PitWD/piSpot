@@ -9,15 +9,15 @@ APP_DATE="26.06.2025"
 
 ###  G L O B A L  -  Variables & tui.lib ###
 # Get dir of script
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TUI_AS_SYS="true"     # false = use user PATH, etc. ...
 source "./tui.lib" || {
     printf "\t${escRedBold}Error${escReset}: Could not source tui.lib\n\n"
     exit 1
 }
 
-linesCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
-finalCNT=15 # leading for final, 2-4 for the final result, trailing for final, prompt
+linesCNT=30
+finalCNT=30
 ###  G L O B A L  -  Variables  ###
 
 
@@ -264,7 +264,7 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
             RestoreCursor 1
             printOK
             RestoreCursor 2
-            printf "\t'$TWEAK_TARGET_DNS' is$escBold UpToDate$escReset.\n"
+            printf "\t'$TWEAK_TARGET_DNS' is$escGreenBold UpToDate$escReset.\n"
         fi
     else
         cp "$TMP_TWEAK" "$TWEAK_TARGET_DNS" || {
@@ -340,7 +340,7 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
             RestoreCursor 1
             printOK
             RestoreCursor 2
-            printf "\t'$TWEAK_TARGET_SERVICE' is$escBold UpToDate$escReset.\n"
+            printf "\t'$TWEAK_TARGET_SERVICE' is$escGreenBold UpToDate$escReset.\n"
         fi
     else
         cp "$TMP_TWEAK_SYS" "$TWEAK_TARGET_SERVICE" || {

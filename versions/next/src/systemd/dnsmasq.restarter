@@ -116,6 +116,13 @@ for i in {1..120}; do
         fi
         echo " NetworkManagers dnsmasq killed."
         # Start dnsmasq with the new parameters
+        echo
+        echo "$TWEAK_DNSMASQ $strDNSmasq"
+        echo
+        echo " Press eventually 'Ctrl-Z' to release terminal..."
+        echo " !! BUT... THEN YOU HAVE TO RESTART THE SCRIPT !!"
+        echo " So, enter 'bg' to finally reactivate the tweak then."
+        echo
         $TWEAK_DNSMASQ $strDNSmasq
         if [ $? -ne 0 ]; then
             echo " Failed to start piSpots dnsmasq with new parameters." >&2

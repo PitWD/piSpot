@@ -250,15 +250,20 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
                     printNOK
                     RestoreCursor 3
                     printf "\tFailed to update '$TWEAK_TARGET_DNS'.\n\t" >&2
+                    rm -f "$TMP_TWEAK"
                     printCheckReasonExit
                 }
                 chmod +x "$TWEAK_TARGET_DNS"
                 printOK
+                RestoreCursor 2
+                delLines 2
+                printf "\t${escGreen}Update successful: '$TWEAK_TARGET_DNS'.$escReset\n" >&2
             else
                 RestoreCursor 1
                 printWARN
-                RestoreCursor 3
-                printf "\t$escYellowKept old '$TWEAK_TARGET_DNS'.$escReset\n" >&2
+                RestoreCursor 2
+                delLines 2
+                printf "\t${escYellow}Kept old '$TWEAK_TARGET_DNS'.$escReset\n" >&2
             fi
         else
             RestoreCursor 1
@@ -327,13 +332,18 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
                     printNOK
                     RestoreCursor 3
                     printf "\tFailed to update '$TWEAK_TARGET_SERVICE'.\n\t" >&2
+                    rm -f "$TMP_TWEAK_SYS"
                     printCheckReasonExit
                 }
                 printOK
+                RestoreCursor 2
+                delLines 2
+                printf "\t${escYellow}Update successful: '$TWEAK_TARGET_SERVICE'.$escReset\n" >&2
             else
                 RestoreCursor 1
                 printWARN
-                RestoreCursor 3
+                RestoreCursor 2
+                delLines 2
                 printf "\t${escYellow}Kept old '$TWEAK_TARGET_SERVICE'.$escReset\n" >&2
             fi
         else

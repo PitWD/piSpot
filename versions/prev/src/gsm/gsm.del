@@ -18,8 +18,9 @@ gsm_autoconnect="__AUTOCONNECT__"
 
 
 ###  G L O B A L  -  Variables  ###
-source "./tui.lib" || {
-    printf "Error: Could not source tui.lib\n"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/tui.lib" || {
+    printf "\tError: Could not source tui.lib\n\n"
     exit 1
 }
 
@@ -42,7 +43,7 @@ SaveCursor 0 "\n\n"
 printAction
 printf "Delete connection... "
 SaveCursor 1 "\n\t"
-if ! nmcli connection down "$gsm_name"; then
+if ! nmcli connection delete "$gsm_name"; then
     SaveCursor 2
     RestoreCursor 1
     printNOK
