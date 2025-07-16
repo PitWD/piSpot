@@ -23,7 +23,7 @@ IFS=',' read -r -a DNSservers <<< "$dns_upstream"
 
 strDNSmasq=" --interface=$wifi_ifname"
 strDNSmasq+=" --listen-address=$ipv4_address"
-strDNSmasq+=" --dhcp-range=$dhcp4_start,$dhcp4_end,$dhcp4_leasetime"
+strDNSmasq+=" --dhcp-range=$dhcp4_start,$dhcp4_stop,$dhcp4_leasetime"
 strDNSmasq+=" --port=$dns_port"
 for server in "${DNSservers[@]}"; do
     strDNSmasq+=" --server=$server"
@@ -50,7 +50,14 @@ strDNSmasq+=" --conf-file=/dev/null"
             echo " NetworkManagers dnsmasq killed."
         fi
         # Start dnsmasq with the new parameters
-        $TWEAK_DNSMASQ $strDNSmasq &
+        echo
+        echo "$TWEAK_DNSMASQ $strDNSmasq"
+        echo
+        echo " Press eventually 'Ctrl-Z' to release terminal..."
+        echo " !! BUT... THEN YOU HAVE TO RESTART THE SCRIPT !!"
+        echo " So, enter 'bg' to finally reactivate the tweak then."
+        echo
+        $TWEAK_DNSMASQ $strDNSmasq
         if [ $? -ne 0 ]; then
             echo " Failed to start piSpots dnsmasq with new parameters." >&2
             exit 1

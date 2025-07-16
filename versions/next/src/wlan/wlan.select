@@ -2,9 +2,9 @@
 
 # Template to select WLAN CLIENT connection from NetworkManager
 APP_NAME="piSpot"
-APP_VERSION="0.0.1"
+APP_VERSION="0.0.2"
 APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="26.06.2025"
+APP_DATE="16.07.2025"
 
 # These placeholders will be set by the Install.sh script
 wlan_ifname="__IFNAME__" # e.g. "wlan0" or "wlan1"
@@ -41,7 +41,7 @@ if ! ip link show "$wlan_ifname" >/dev/null 2>&1; then
     printNOK
     RestoreCursor 1
     printNOK
-    print "\n\t${escRED}ERROR$escReset Interface '$wlan_ifname' not found."
+    printf "\n\t${escRED}ERROR$escReset Interface '$wlan_ifname' not found."
     echo
     exit 1
 fi
@@ -58,7 +58,7 @@ if [[ ${#NETWORKS[@]} -eq 0 ]]; then
     printNOK
     RestoreCursor 1
     printNOK
-    print "\n\t${escRED}ERROR$escReset No saved connections for '$wlan_ifname'."
+    printf "\n\t${escRED}ERROR$escReset No saved connections for '$wlan_ifname'."
     echo
     exit 1
 fi

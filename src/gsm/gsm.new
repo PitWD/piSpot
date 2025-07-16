@@ -2,9 +2,9 @@
 
 # Template to add GSM/WWAN connection to NetworkManager
 APP_NAME="piSpot"
-APP_VERSION="0.0.1"
+APP_VERSION="0.0.2"
 APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="26.06.2025"
+APP_DATE="16.07.2025"
 
 
 # These placeholders will be set by the Install.sh script
@@ -16,6 +16,7 @@ gsm_dial="__DIAL__"
 gsm_user="__USER__"
 gsm_password="__PASSWORD__"
 gsm_autoconnect="__AUTOCONNECT__"
+gsm_driver="__DRIVER__"
 
 
 ###  G L O B A L  -  Variables  ###
@@ -25,8 +26,28 @@ source "$SCRIPT_DIR/tui.lib" || {
     exit 1
 }
 
+# List of variables to inject into the other gsm scripts
+# !!  IF connection is made with ModemManager  !!
+GSM_MM_VARS=(
+    "gsm_ifname"
+    "gsm_name"
+    "gsm_apn"
+    "gsm_pin"
+    "gsm_dial"    
+    "gsm_user"
+    "gsm_password"
+    "gsm_autoconnect"
+    "gsm_driver"
+)
+GSM_MM_FILES=(
+    "$SCRIPT_DIR/piSpot_gsm_up.sh"
+    "$SCRIPT_DIR/piSpot_gsm_down.sh"
+    "$SCRIPT_DIR/piSpot_gsm_del.sh"
+)
+
 linesCNT=1
 finalCNT=1
+actionLen=2
 ###  G L O B A L  -  Variables  ###
 
 
@@ -35,8 +56,28 @@ clear
 echo
 GetTermSize
 
+# "*" as interface name for using the 1st available interface
+if [[ "$gsm_ifname" == "*" ]]; then
+    gsm_ifname=$(nmcli device | awk '/gsm|wwan/ {print $1; exit}')
+fi
+gsm_type=$(nmcli device | awk '/'$gsm_ifname'/ {print $2; exit}')
+
+if [[ $gsm_driver == "auto" ]]; then
+    if [[ $gsm_type == "gsm" ]]; then
+        gsm_driver="nm"
+    else
+        gsm_driver="mm"
+    fi
+fi
+
+if [[ $gsm_driver == "mm" ]]; then
+    strManager="ModemManager WWAN"
+else
+    strManager="NetworkManager GSM"
+fi
+
 # Header
-printf "$escCyanBold 🛈 $escReset ${escUnderline}New NetworkManager GSM/WWAN Connection...$escReset "
+printf "$escCyanBold  🛈 $escReset ${escUnderline}New $strManager Connection...$escReset "
 SaveCursor 0 "\n\n"
 ((linesCNT += 3)) # leading line, header line, and trailing line
 
@@ -105,34 +146,9 @@ printOK
 echo
 delLines 1
 
-# Compatible with mmcli "*" as interface name for using the 1st available interface
-if [[ "$gsm_ifname" == "*" ]]; then
-    gsm_ifname=$(nmcli device | awk '/gsm|wwan/ {print $1; exit}')
-fi
-
-strGSM="con-name $gsm_name"
-strGSM+=" ifname $gsm_ifname"
-strGSM+=" apn $gsm_apn"
-if [[ $gsm_pin != "" ]]; then
-    strGSM+=" gsm.pin $gsm_pin"
-fi
-if [[ $gsm_dial != "" ]]; then
-    strGSM+=" gsm.number $gsm_dial"
-fi
-if [[ $gsm_user != "" ]]; then
-    strGSM+=' gsm.username "'$gsm_user'"'
-fi
-if [[ $gsm_password != "" ]]; then
-    strGSM+=' gsm.password "'$gsm_password'"'
-fi
-strGSM+=" autoconnect $gsm_autoconnect"
-echo
-echo $strGSM
-echo
 # If gsm_name is already a saved NetworkManager connection, remove old connection
 if nmcli connection show "$gsm_name" &>/dev/null; then  
-    printAction
-    printf "Old onnection '$gsm_name' exists, removing it... "
+    printAction "Old connection '$gsm_name' exists, removing it... "
     SaveCursor 1 "\n\t"
     if nmcli connection delete "$gsm_name"; then
         SaveCursor 2
@@ -151,46 +167,196 @@ if nmcli connection show "$gsm_name" &>/dev/null; then
     fi
 fi
 
-echo $strGSM
-echo
-printAction
-printf "Adding new connection... "
-SaveCursor 1 "\n\t"
-if nmcli connection add type gsm $strGSM; then
-    SaveCursor 2
-    RestoreCursor 1
-    printOK
-    RestoreCursor 2
-else
-    SaveCursor 2
-    RestoreCursor 1
-    printNOK
-    RestoreCursor 0
-    printNOK
-    RestoreCursor 2
+if [[ $gsm_driver == "nm" ]]; then
+    # NetworkManager is used for GSM connections
+    strGSM="con-name $gsm_name"
+    strGSM+=" ifname $gsm_ifname"
+    strGSM+=" apn $gsm_apn"
+    if [[ $gsm_pin != "" ]]; then
+        strGSM+=" gsm.pin $gsm_pin"
+    fi
+    if [[ $gsm_dial != "" ]]; then
+        strGSM+=" gsm.number $gsm_dial"
+    fi
+    if [[ $gsm_user != "" ]]; then
+        strGSM+=' gsm.username "'$gsm_user'"'
+    fi
+    if [[ $gsm_password != "" ]]; then
+        strGSM+=' gsm.password "'$gsm_password'"'
+    fi
+    strGSM+=" autoconnect $gsm_autoconnect"
+    
     echo
-    exit 1
-fi
+    echo $strGSM
+    echo
 
-printAction
-printf "Activate new connection... "
-SaveCursor 1 "\n\t"
-if nmcli connection up "$gsm_name"; then
-    SaveCursor 2
-    RestoreCursor 1
-    printOK
-    RestoreCursor 0
-    printOK
-    RestoreCursor 2
+    printAction "Adding new connection... "
+    SaveCursor 1 "\n\t"
+    if nmcli connection add type gsm $strGSM; then
+        SaveCursor 2
+        RestoreCursor 1
+        printOK
+        RestoreCursor 2
+    else
+        SaveCursor 2
+        RestoreCursor 1
+        printNOK
+        RestoreCursor 0
+        printNOK
+        RestoreCursor 2
+        echo
+        exit 1
+    fi
+
+    printAction "Activate new connection... "
+    SaveCursor 1 "\n\t"
+    if nmcli connection up "$gsm_name"; then
+        SaveCursor 2
+        RestoreCursor 1
+        printOK
+        RestoreCursor 0
+        printOK
+        RestoreCursor 2
+    else
+        SaveCursor 2
+        RestoreCursor 1
+        printNOK
+        RestoreCursor 0
+        printNOK
+        RestoreCursor 2
+        echo
+        exit 1
+    fi
 else
-    SaveCursor 2
-    RestoreCursor 1
-    printNOK
-    RestoreCursor 0
-    printNOK
-    RestoreCursor 2
+    # ModemManager is used for GSM connections
+    strGSM+="apn=$gsm_apn"
+    if [[ $gsm_pin != "" ]]; then
+        strGSM+=",pin=$gsm_pin"
+    fi
+    if [[ $gsm_dial != "" ]]; then
+        strGSM+=",number=$gsm_dial"
+    fi
+    if [[ $gsm_user != "" ]]; then
+        strGSM+=",user=$gsm_user"
+    fi
+    if [[ $gsm_password != "" ]]; then
+        strGSM+=",password=$gsm_password"
+    fi
+    strGSM+=",allow-roaming=yes"
+
     echo
-    exit 1
+    echo $strGSM
+    echo
+
+    # Check state of "-m 0"
+    printAction "Check ModemManager state... "
+    SaveCursor 3 "\n"
+    mm_state=$(mmcli -m 0 -K | awk '/modem.generic.state / {print $3; exit}')
+    if [[ $mm_state == "connected" ]]; then
+        # Full disconnect
+        printAction "  Disconnecting modem... "
+        SaveCursor 1 "\n\t"
+        if mmcli -m 0 --simple-disconnect; then
+            SaveCursor 2
+            RestoreCursor 1
+            printOK
+            RestoreCursor 2
+        else
+            SaveCursor 2
+            RestoreCursor 1
+            printNOK
+            RestoreCursor 0
+            printNOK
+            RestoreCursor 2
+            echo
+            exit 1
+        fi
+    elif [[ $mm_state == "" ]]; then
+        # Missing modem
+        RestoreCursor 0
+        printNOK 
+        RestoreCursor 3
+        printNOK "\n\t"
+        printf "${escRED}ERROR$escReset No modem found for '$gsm_ifname'.\n\t"
+        printCheckReasonExit
+    fi
+    
+    # Full preventive CleanUp - without even knowing if it's needed
+    printAction "  Killing udhcpc for $gsm_ifname... "
+    SaveCursor 1 
+    if pkill -f "udhcpc -i $gsm_ifname"; then
+        printOK
+    else
+        printWARN
+    fi
+    echo
+    printAction "  Flush ip address for $gsm_ifname... "
+    SaveCursor 1
+    if ip addr flush dev "$gsm_ifname"; then
+        printOK
+    else
+        printWARN
+    fi
+    echo
+    printAction "  Down ip link for $gsm_ifname... "
+    SaveCursor 1
+    if ip link set "$gsm_ifname" down; then
+        printOK
+    else
+        printWARN
+    fi
+    echo
+
+    # Add new connection
+    printAction "Simple connect $gsm_ifname... "
+    SaveCursor 1 "\n\t"
+    if mmcli -m 0 --simple-connect="$strGSM"; then
+        SaveCursor 2
+        RestoreCursor 1
+        printOK
+        RestoreCursor 2
+    else
+        SaveCursor 2
+        RestoreCursor 1
+        printNOK
+        RestoreCursor 0
+        printNOK
+        RestoreCursor 3
+        printNOK
+        RestoreCursor 2
+        echo
+        exit 1
+    fi
+    printAction "$escBold  udhcp$escReset the connection... "
+    SaveCursor 1 "\n\t"
+    if udhcpc -i "$gsm_ifname" > /dev/null; then
+        SaveCursor 2
+        RestoreCursor 1
+        printOK
+        RestoreCursor 0
+        printOK
+        RestoreCursor 3
+        printOK
+        RestoreCursor 2
+    else
+        SaveCursor 2
+        RestoreCursor 1
+        printNOK
+        RestoreCursor 0
+        printNOK
+        RestoreCursor 3
+        printNOK
+        RestoreCursor 2
+        echo
+        exit 1
+    fi
+
+    # Save variables to scripts
+    for var in "${GSM_MM_VARS[@]}"; do
+        for file in "${GSM_MM_FILES[@]}"; do
+            iniSet $file $var ${!var}
+        done
+    done
 fi
 
 echo

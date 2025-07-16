@@ -2,11 +2,12 @@
 
 # Template to UP NetworkManager GSM/WWAN connection
 APP_NAME="piSpot"
-APP_VERSION="0.0.1"
+APP_VERSION="0.0.2"
 APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="26.06.2025"
+APP_DATE="16.07.2025"
 
 # These placeholders will be set by the Install.sh script
+# !! OR by the gsm.new script, if connection was made with ModemManager !!
 gsm_ifname="__IFNAME__" # e.g. "ttyUSB0" or "ttyACM0" or "*"
 gsm_name="__NAME__"
 gsm_apn="__APN__"
@@ -15,6 +16,7 @@ gsm_dial="__DIAL__"
 gsm_user="__USER__"
 gsm_password="__PASSWORD__"
 gsm_autoconnect="__AUTOCONNECT__"
+gsm_driver="__DRIVER__"
 
 
 ###  G L O B A L  -  Variables  ###
@@ -34,31 +36,92 @@ clear
 echo
 GetTermSize
 
+if [[ $gsm_driver == "mm" ]]; then
+    strManager="ModemManager WWAN"
+else
+    strManager="NetworkManager GSM"
+fi
+
 # Header
-printf "$escCyanBold 🛈 $escReset ${escUnderline}UP NetworkManager GSM/WWAN Connection '$escBold$gsm_name$escResetBold'...$escReset "
+printf "$escCyanBold 🛈 $escReset ${escUnderline}UP $strManager Connection '$escBold$gsm_name$escResetBold'...$escReset "
 SaveCursor 0 "\n\n"
 ((linesCNT += 3)) # leading line, header line, and trailing line
 
-
-printAction
-printf "Up connection... "
-SaveCursor 1 "\n\t"
-if nmcli connection up "$gsm_name"; then
-    SaveCursor 2
-    RestoreCursor 1
-    printNOK
-    RestoreCursor 0
-    printNOK
-    RestoreCursor 2
-    echo
-    exit 1
+if [[ $gsm_driver != "mm" ]]; then
+    printAction
+    printf "Up connection... "
+    SaveCursor 1 "\n\t"
+    if nmcli connection up "$gsm_name"; then
+        SaveCursor 2
+        RestoreCursor 1
+        printNOK
+        RestoreCursor 0
+        printNOK
+        RestoreCursor 2
+        echo
+        exit 1
+    else
+        SaveCursor 2
+        RestoreCursor 1
+        printOK
+        RestoreCursor 0
+        printOK
+        RestoreCursor 2
+    fi
 else
-    SaveCursor 2
-    RestoreCursor 1
-    printOK
-    RestoreCursor 0
-    printOK
-    RestoreCursor 2
+    # ModemManager is used for GSM connections
+    strGSM+="apn=$gsm_apn"
+    if [[ $gsm_pin != "" ]]; then
+        strGSM+=",pin=$gsm_pin"
+    fi
+    if [[ $gsm_dial != "" ]]; then
+        strGSM+=",number=$gsm_dial"
+    fi
+    if [[ $gsm_user != "" ]]; then
+        strGSM+=",user=$gsm_user"
+    fi
+    if [[ $gsm_password != "" ]]; then
+        strGSM+=",password=$gsm_password"
+    fi
+    strGSM+=",allow-roaming=yes"
+
+    # Add new connection
+    printAction "Simple connect $gsm_ifname... "
+    SaveCursor 1 "\n\t"
+    if mmcli -m 0 --simple-connect="$strGSM"; then
+        SaveCursor 2
+        RestoreCursor 1
+        printOK
+        RestoreCursor 2
+    else
+        SaveCursor 2
+        RestoreCursor 1
+        printNOK
+        RestoreCursor 0
+        printNOK
+        RestoreCursor 2
+        echo
+        exit 1
+    fi
+    printAction "$escBold  udhcp$escReset the connection... "
+    SaveCursor 1 "\n\t"
+    if udhcpc -i "$gsm_ifname" > /dev/null; then
+        SaveCursor 2
+        RestoreCursor 1
+        printOK
+        RestoreCursor 0
+        printOK
+        RestoreCursor 2
+    else
+        SaveCursor 2
+        RestoreCursor 1
+        printNOK
+        RestoreCursor 0
+        printNOK
+        RestoreCursor 2
+        echo
+        exit 1
+    fi
 fi
 
 echo

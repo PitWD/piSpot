@@ -2,11 +2,12 @@
 
 # Template to Delete NetworkManager GSM/WWAN connection
 APP_NAME="piSpot"
-APP_VERSION="0.0.1"
+APP_VERSION="0.0.2"
 APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="26.06.2025"
+APP_DATE="16.07.2025"
 
 # These placeholders will be set by the Install.sh script
+# !! OR by the gsm.new script, if connection was made with ModemManager !!
 gsm_ifname="__IFNAME__" # e.g. "ttyUSB0" or "ttyACM0" or "*"
 gsm_name="__NAME__"
 gsm_apn="__APN__"
@@ -15,6 +16,7 @@ gsm_dial="__DIAL__"
 gsm_user="__USER__"
 gsm_password="__PASSWORD__"
 gsm_autoconnect="__AUTOCONNECT__"
+gsm_driver="__DRIVER__"
 
 
 ###  G L O B A L  -  Variables  ###
@@ -34,31 +36,83 @@ clear
 echo
 GetTermSize
 
+if [[ $gsm_driver == "mm" ]]; then
+    strManager="ModemManager WWAN"
+else
+    strManager="NetworkManager GSM"
+fi
+
 # Header
-printf "$escCyanBold 🛈 $escReset ${escUnderline}DELETE NetworkManager GSM/WWAN Connection '$escBold$gsm_name$escResetBold'...$escReset "
+printf "$escCyanBold 🛈 $escReset ${escUnderline}DELETE $strManager Connection '$escBold$gsm_name$escResetBold'...$escReset "
 SaveCursor 0 "\n\n"
 ((linesCNT += 3)) # leading line, header line, and trailing line
 
-
-printAction
-printf "Delete connection... "
-SaveCursor 1 "\n\t"
-if ! nmcli connection delete "$gsm_name"; then
-    SaveCursor 2
-    RestoreCursor 1
-    printNOK
-    RestoreCursor 0
-    printNOK
-    RestoreCursor 2
-    echo
-    exit 1
+if [[ $gsm_driver != "mm" ]]; then
+    printAction
+    printf "Delete connection... "
+    SaveCursor 1 "\n\t"
+    if ! nmcli connection delete "$gsm_name"; then
+        SaveCursor 2
+        RestoreCursor 1
+        printNOK
+        RestoreCursor 0
+        printNOK
+        RestoreCursor 2
+        echo
+        exit 1
+    else
+        SaveCursor 2
+        RestoreCursor 1
+        printOK
+        RestoreCursor 0
+        printOK
+        RestoreCursor 2
+    fi
 else
-    SaveCursor 2
-    RestoreCursor 1
-    printOK
-    RestoreCursor 0
-    printOK
-    RestoreCursor 2
+    # Full disconnect
+    printAction "Disconnecting modem... "
+    SaveCursor 1 "\n\t"
+    if mmcli -m 0 --simple-disconnect; then
+        SaveCursor 2
+        RestoreCursor 1
+        printOK
+        RestoreCursor 2
+    else
+        SaveCursor 2
+        RestoreCursor 1
+        printNOK
+        RestoreCursor 0
+        printNOK
+        RestoreCursor 2
+        echo
+        exit 1
+    fi
+
+    # Full preventive CleanUp - without even knowing if it's needed
+    printAction "  Killing udhcpc for $gsm_ifname... "
+    SaveCursor 1 
+    if pkill -f "udhcpc -i $gsm_ifname"; then
+        printOK
+    else
+        printWARN
+    fi
+    echo
+    printAction "  Flush ip address for $gsm_ifname... "
+    SaveCursor 1
+    if ip addr flush dev "$gsm_ifname"; then
+        printOK
+    else
+        printWARN
+    fi
+    echo
+    printAction "  Down ip link for $gsm_ifname... "
+    SaveCursor 1
+    if ip link set "$gsm_ifname" down; then
+        printOK
+    else
+        printWARN
+    fi
+    echo
 fi
 
 echo

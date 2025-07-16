@@ -43,9 +43,13 @@ Without individual config settings the `Install.sh` script will just ask for the
 0. !! YOU ARE USING A "**PreAlpha**" VERSION !!
 1. Missing uninstall script.
 2. Missing auto recognition if **GSM** needs a **PIN**, dial number, user or password. *See the `piSpot.conf` file to adjust the needs of your **SIM** card to get a connection up*.
-3. Even actually there are already much **more scripts** installed to handle **WLAN** and **GSM** connections - but without any explanation or mentioning here.
+3. Actually there are already much **more scripts** installed to handle **WLAN** and **GSM** connections - but without any explanation or mentioning here.
 4. Missing **TUI** which handles all the scripts to manage all piSpot scripts.
 5. Parallel **WLAN** and **GSM** connection as iNet sources may exclude you from accessing the piSpot on all interfaces. *Just unplug the WLAN or GSM stick and you're back in game*.
 6. The reboot resistant **tweak** depends actually on **systemd**. *But there is already a manual way to do it without systemd - see the (undocumented) scripts...*
 7. DO NOT USE **nmtui** - even just watching the piSpot connection there will kill the functionality - *actually no clue why...*
-
+8. **OpenSuse** (ARM for RasPi) tumbleweed minimal.
+    - **missing** dnsmasq, mmcli, udhcpc
+    - messed up hard-paths for **route** in */usr/share/udhcpc/default.bond*
+9. NetworkManager incompatible **GSM** sticks may now work via ModemManager - but such hardware will actually not autoconnect after reboot or reconnection!
+But after one time `sudo piSpot_wwan_new.sh` you can then do `sudo piSpot_wwan_up.sh` to reconnect after reboot or reconnection. *(Yes, at least the "up" script should work without sudo... and it will... soon!)*

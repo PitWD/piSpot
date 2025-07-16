@@ -150,14 +150,14 @@ if [[ -z "$actSSID" ]]; then
 else
     printWARN "\n"
     printAction "  Down a active connection '$escBold$actSSID$escReset'... "
-    nmcli connection down "$actSSID" > /dev/null || {
+    nmcli connection down "$actSSID" &> /dev/null || {
         printNOK
         printf "\n\t${escRedBold}ERROR$escReset - failed to down the active connection '$actSSID'.\n\t" >&2
         printCheckReasonExit
     }
     printOK "\n"
     printAction "  Delete connection '$escBold$actSSID$escReset'... "
-    nmcli connection delete "$actSSID" > /dev/null || {
+    nmcli connection delete "$actSSID" &> /dev/null || {
         printNOK
         printf "\n\t${escRedBold}ERROR$escReset - failed to delete the active connection '$actSSID'.\n\t"
         printCheckReasonExit
@@ -167,10 +167,10 @@ fi
 
 # Delete connection SSID - if exist (as non-active)
 printAction "Check if SSID '$escBold$SSID$escReset' is free... "
-if nmcli connection show | grep -q "$SSID"; then
+if nmcli -t -f NAME connection show | grep -Fxq "$SSID"; then
     printWARN "\n"
-    printAction "   Remove '$SSID' connection... "
-    nmcli connection delete "$SSID" > /dev/null || {
+    printAction "  Remove '$SSID' connection... "
+    nmcli connection delete "$SSID" &> /dev/null || {
         printNOK
         printf "\n\t${escRedBold}ERROR$escReset - failed to delete '$SSID'.\n\t" >&2
         printCheckReasonExit
@@ -250,15 +250,20 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
                     printNOK
                     RestoreCursor 3
                     printf "\tFailed to update '$TWEAK_TARGET_DNS'.\n\t" >&2
+                    rm -f "$TMP_TWEAK"
                     printCheckReasonExit
                 }
                 chmod +x "$TWEAK_TARGET_DNS"
                 printOK
+                RestoreCursor 2
+                delLines 2
+                printf "\t${escGreen}Update successful: '$TWEAK_TARGET_DNS'.$escReset\n" >&2
             else
                 RestoreCursor 1
                 printWARN
-                RestoreCursor 3
-                printf "\t$escYellowKept old '$TWEAK_TARGET_DNS'.$escReset\n" >&2
+                RestoreCursor 2
+                delLines 2
+                printf "\t${escYellow}Kept old '$TWEAK_TARGET_DNS'.$escReset\n" >&2
             fi
         else
             RestoreCursor 1
@@ -327,13 +332,18 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
                     printNOK
                     RestoreCursor 3
                     printf "\tFailed to update '$TWEAK_TARGET_SERVICE'.\n\t" >&2
+                    rm -f "$TMP_TWEAK_SYS"
                     printCheckReasonExit
                 }
                 printOK
+                RestoreCursor 2
+                delLines 2
+                printf "\t${escYellow}Update successful: '$TWEAK_TARGET_SERVICE'.$escReset\n" >&2
             else
                 RestoreCursor 1
                 printWARN
-                RestoreCursor 3
+                RestoreCursor 2
+                delLines 2
                 printf "\t${escYellow}Kept old '$TWEAK_TARGET_SERVICE'.$escReset\n" >&2
             fi
         else

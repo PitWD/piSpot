@@ -660,5 +660,28 @@ makeDirs(){
     echo
     return $locCnt
 }
+iniSet() {
+    # Create or replace a key-value pair in an INI-like file
+    local strFile="$1"
+    local strKey="$2"
+    local strVal="$3"
+    if grep -q "^$strKey=" "$strFile"; then
+        sed -i "s/\($strKey=\"\)[^\"]*\(\"\)/\1$strVal\2/" "$strFile"
+    else
+        echo "$strKey=\"$strVal\"" >> "$strFile"
+    fi
+}
+iniGet() {
+    # Get key-value from an INI-like file
+    local strFile="$1"
+    local strKey="$2"
+    local strVal="$3"
+    local found
+    found=$(grep -m1 "^$strKey=" "$strFile")
+    if [[ -n "$found" ]]; then
+        strVal=$(echo "$found" | sed -n 's/^.*="\([^"]*\)".*$/\1/p')
+    fi
+    echo "$strVal"
+}
 ###  F u n c t i o n s  ###
 

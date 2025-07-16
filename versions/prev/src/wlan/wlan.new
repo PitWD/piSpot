@@ -10,6 +10,7 @@ APP_DATE="26.06.2025"
 wlan_ifname="__IFNAME__" # e.g. "wlan0" or "wlan1"
 wlan_autoconnect="__AUTOCONNECT__"
 
+wlan_password="0000" # "0000" for ask for password
 
 ###  G L O B A L  -  Variables  ###
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -86,30 +87,36 @@ wlan_security=$(echo "$SELECTED_LINE" | awk '{print $2}')
 if [[ "$wlan_security" == "--" || -z "$wlan_security" ]]; then
     wlan_security="none"
 else
+    wlan_security="wpa-psk"
     printAction
     printf "Check Password for '$escBold$wlan_ssid$escReset'... "
     SaveCursor 1
     if [[ "$wlan_password" == "0000" ]]; then
         printWARN
         echo
-        getValidPassword "$wlan_password" "0000" wlan_password 1 "Password" " "
+        getValidPassword "$wlan_password" "0000" wlan_password 1 "Password"
         RestoreCursor 1
     fi
     printOK
     echo
 fi
 echo
+delLines 1
 
 strWLAN="con-name $wlan_ssid"
-strWLAN+=' ifname "'$wlan_ifname'"'
+strWLAN+=" ifname $wlan_ifname"
 strWLAN+=" ssid $wlan_ssid"
+#if [[ "$wlan_security" != "none" ]]; then
+#    strWLAN+=" wifi-sec.key-mgmt $wlan_security"
+#    if [[ -n "$wlan_password" ]]; then
+#        strWLAN+=" wifi-sec.psk $wlan_password"
+#    else
+#        strWLAN+=" wifi-sec.psk ''"
+#    fi
+#fi
+strWLAN+=" wifi-sec.key-mgmt $wlan_security"
 if [[ "$wlan_security" != "none" ]]; then
-    strWLAN+=" wifi-sec.key-mgmt $wlan_security"
-    if [[ -n "$wlan_password" ]]; then
-        strWLAN+=" wifi-sec.psk '$wlan_password'"
-    else
-        strWLAN+=" wifi-sec.psk ''"
-    fi
+    strWLAN+=" wifi-sec.psk $wlan_password"
 fi
 strWLAN+=" autoconnect $wlan_autoconnect"
 echo
@@ -140,7 +147,7 @@ fi
 printAction
 printf "Adding new connection... "
 SaveCursor 1 "\n\t"
-if nmcli connection add $strWLAN; then
+if nmcli connection add type wifi $strWLAN; then
     SaveCursor 2
     RestoreCursor 1
     printOK

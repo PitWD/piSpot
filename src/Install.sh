@@ -2,9 +2,9 @@
 
 ###  A P P  D E F I N I T I O N S  ###
 APP_NAME="piSpot"
-APP_VERSION="0.0.1"
+APP_VERSION="0.0.2"
 APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="26.06.2025"
+APP_DATE="16.07.2025"
 
 
 ###  G L O B A L  -  Variables & tui.lib ###
@@ -65,6 +65,7 @@ REQUIRED_VARS=(
     "gsm_user"
     "gsm_password"
     "gsm_autoconnect"
+    "gsm_driver"
     "wlan_ifname"
     "wlan_autoconnect"
 )
