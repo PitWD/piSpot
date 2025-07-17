@@ -639,7 +639,7 @@ makeDirs(){
         if [[ $((CURSOR_Y_ARR[1] + finalCNT + 1)) -gt TERM_Y ]]; then
             fold=1
         fi
-        sleep 0.25 
+        sleep 0.125 
     done
     if [[ $fold -eq 1 ]]; then
         UpCursor 1
@@ -685,3 +685,6 @@ iniGet() {
 }
 ###  F u n c t i o n s  ###
 
+APP_VERSION="0.0.3"
+APP_STATE="dev"
+APP_DATE="17.07.2025"

@@ -2,9 +2,9 @@
 
 # Template to add GSM/WWAN connection to NetworkManager
 APP_NAME="piSpot"
-APP_VERSION="0.0.2"
+APP_VERSION="0.0.3"
 APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="16.07.2025"
+APP_DATE="17.07.2025"
 
 
 # These placeholders will be set by the Install.sh script
@@ -77,7 +77,7 @@ else
 fi
 
 # Header
-printf "$escCyanBold  🛈 $escReset ${escUnderline}New $strManager Connection...$escReset "
+printf "$escCyanBold   🛈 $escReset ${escUnderline}New $strManager Connection...$escReset "
 SaveCursor 0 "\n\n"
 ((linesCNT += 3)) # leading line, header line, and trailing line
 

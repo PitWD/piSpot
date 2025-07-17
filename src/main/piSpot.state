@@ -120,3 +120,6 @@ nmcli -t -f "GENERAL.TYPE,GENERAL.DEVICE,GENERAL.IP-IFACE,GENERAL.STATE,\
                 print ""
             }
         }'
+APP_VERSION="0.0.3"
+APP_STATE="dev"
+APP_DATE="17.07.2025"

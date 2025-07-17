@@ -69,4 +69,6 @@ strDNSmasq+=" --conf-file=/dev/null"
 #done
 
 #echo " piSpots dnsmasq restarter failed to restart dnsmasq." >&2
-#exit 1
+#exit 1APP_VERSION="0.0.3"
+APP_STATE="dev"
+APP_DATE="17.07.2025"

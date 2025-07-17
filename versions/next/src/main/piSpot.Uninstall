@@ -94,4 +94,6 @@ else
 fi
 ENV_FILE="/etc/environment"
 
-exit 0
+exit 0APP_VERSION="0.0.3"
+APP_STATE="dev"
+APP_DATE="17.07.2025"

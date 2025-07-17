@@ -4,7 +4,13 @@ SRC_DIR="$(pwd)/src"
 NEXT_DIR="$(pwd)/versions/next"
 PREV_DIR="$(pwd)/versions/prev"
 
+DEV_GET="$(pwd)/GetDevSetup.sh"
+PREV_GET="$(pwd)/GetPrevSetup.sh"
+NEXT_GET="$(pwd)/GetNextSetup.sh"
+
 FILE_LIST=(
+    "$(pwd)/GetDevSetup.sh"
+    "$(pwd)/GetNextSetup.sh"
     "$SRC_DIR/Install.sh"
     "$SRC_DIR/tui.lib"
     "$SRC_DIR/piSpot.conf"
@@ -26,19 +32,27 @@ FILE_LIST=(
     "$SRC_DIR/systemd/tweak.manual"
 )
 
+source "$SRC_DIR/tui.lib"
+
+APP_VERSION=$(iniGet "$NEXT_GET" "APP_VERSION")
+APP_STATE=$(iniGet "$NEXT_GET" "APP_STATE")
+APP_DATE=$(iniGet "$NEXT_GET" "APP_DATE")
+
+iniSet "$PREV_GET" "APP_VERSION" "$APP_VERSION"
+iniSet "$PREV_GET" "APP_STATE" "$APP_STATE"
+iniSet "$PREV_GET" "APP_DATE" "$APP_DATE"
+
 APP_NAME="piSpot"
-APP_VERSION="0.0.2"
+APP_VERSION="0.0.3"
 APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="16.07.2025"
+APP_DATE="17.07.2025"
 
 # Loop all files in FILE_LIST
 for file in "${FILE_LIST[@]}"; do
-    if [[ -f "$file" ]]; then
-        # Replace version, date and state in the file
-        sed -i "s/APP_VERSION=\"[^\"]*\"/APP_VERSION=\"$APP_VERSION\"/" "$file"
-        sed -i "s/APP_STATE=\"[^\"]*\"/APP_STATE=\"$APP_STATE\"/" "$file"
-        sed -i "s/APP_DATE=\"[^\"]*\"/APP_DATE=\"$APP_DATE\"/" "$file"
-    fi
+    # Replace version, date and state in the file
+    iniSet "$file" "APP_VERSION" "$APP_VERSION"
+    iniSet "$file" "APP_STATE" "$APP_STATE"
+    iniSet "$file" "APP_DATE" "$APP_DATE"
 done
 
 # copy next to last version

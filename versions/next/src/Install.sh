@@ -2,9 +2,9 @@
 
 ###  A P P  D E F I N I T I O N S  ###
 APP_NAME="piSpot"
-APP_VERSION="0.0.2"
+APP_VERSION="0.0.3"
 APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="16.07.2025"
+APP_DATE="17.07.2025"
 
 
 ###  G L O B A L  -  Variables & tui.lib ###
@@ -241,8 +241,8 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
             RestoreCursor 1
             printWARN
             RestoreCursor 2
-            printf "\n\tDiff. detected!$escGreen New$escReset:'$escBold$TMP_TWEAK$escReset'\
-    $escYellow Old$escReset:'$escBold$TWEAK_TARGET_DNS$escReset'.\n\t"
+            printf "\t$escGreen New$escReset:'$escBold$TWEAK_SOURCE_DNS$escReset'\
+$escYellow  Old$escReset:'$escBold$TWEAK_TARGET_DNS$escReset'.\n\t"
             read -p "Update tweak? [y/N] " reply
             SaveCursor 3
             if [[ "$reply" =~ ^[JjYy]$ ]]; then
@@ -258,13 +258,13 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
                 printOK
                 RestoreCursor 2
                 delLines 2
-                printf "\t${escGreen}Update successful: '$TWEAK_TARGET_DNS'.$escReset\n" >&2
+                printf "\t${escGreen}Update successful$escReset: '$escItalic$TWEAK_TARGET_DNS$escReset'.\n" >&2
             else
                 RestoreCursor 1
                 printWARN
                 RestoreCursor 2
                 delLines 2
-                printf "\t${escYellow}Kept old '$TWEAK_TARGET_DNS'.$escReset\n" >&2
+                printf "\t${escYellowBold}Kept old$escReset '$escItalic$TWEAK_TARGET_DNS$escReset'.\n" >&2
             fi
         else
             RestoreCursor 1
@@ -284,7 +284,7 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
         RestoreCursor 1
         printOK
         RestoreCursor 2
-        printf "\t$escGreen'$TWEAK_TARGET_DNS' successful installed.$escReset\n"
+        printf "\t$'$escItalic$TWEAK_TARGET_DNS$escReset'$escGreen successful installed.$escReset\n"
     fi
     rm -f "$TMP_TWEAK"
 
@@ -323,8 +323,8 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
             RestoreCursor 1
             printWARN
             RestoreCursor 2
-            printf "\tDiff. detected!$escGreen New$escReset:'$escBold$TMP_TWEAK_SYS$escReset'\
-    $escYellow Old$escReset:'$escBold$TWEAK_TARGET_SERVICE$escReset'.\n\t"
+            printf "\t$escGreen New$escReset:'$escBold$TWEAK_SOURCE_SERVICE$escReset'\
+$escYellow  Old$escReset:'$escBold$TWEAK_TARGET_SERVICE$escReset'.\n\t"
             read -p "Update tweak systemd? [y/N] " reply
             SaveCursor 3
             if [[ "$reply" =~ ^[JjYy]$ ]]; then
@@ -339,13 +339,13 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
                 printOK
                 RestoreCursor 2
                 delLines 2
-                printf "\t${escYellow}Update successful: '$TWEAK_TARGET_SERVICE'.$escReset\n" >&2
+                printf "\t${escGreen}Update successful$escReset: '$escItalic$TWEAK_TARGET_SERVICE$escReset'.\n" >&2
             else
                 RestoreCursor 1
                 printWARN
                 RestoreCursor 2
                 delLines 2
-                printf "\t${escYellow}Kept old '$TWEAK_TARGET_SERVICE'.$escReset\n" >&2
+                printf "\t${escYellowBold}Kept old$escReset '$escItalic$TWEAK_TARGET_SERVICE$escReset'.\n" >&2
             fi
         else
             RestoreCursor 1
@@ -364,7 +364,7 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
         RestoreCursor 1
         printOK
         RestoreCursor 2
-        printf "\t$escGreen'$TWEAK_TARGET_SERVICE' successful installed.$escReset\n"
+        printf "\t'$escItalic$TWEAK_TARGET_SERVICE$escReset'$escGreen successful installed.$escReset\n"
     fi
     rm -f "$TMP_TWEAK_SYS"
 fi
@@ -422,6 +422,6 @@ if [[ "$TWEAK_USE" == "yes" ]]; then
     printOK "\n"
 fi
 
-printf "\n\n Installation/Update of$escBoldItalic $APP_NAME $APP_VERSION($APP_STATE)$escReset finished successfully!\n\n"
+printf "\n Installation/Update of$escBoldItalic $APP_NAME $APP_VERSION($APP_STATE)$escReset finished successfully!\n\n"
 
 

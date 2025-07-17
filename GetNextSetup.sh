@@ -1,9 +1,9 @@
 #!/bin/bash
 
 APP_NAME="piSpot"
-APP_VERSION="0.0.1"
+APP_VERSION="0.0.3"
 APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="26.06.2025"
+APP_DATE="17.07.2025"
 
 
 
@@ -485,7 +485,7 @@ else
     printOK
     printf "\n$escBold You can now run the installation script:$escReset\n$escItalic\
     cd $TARGET_PRT\n\
-    sudo bash Install.sh$escReset\n\n"
+    sudo ./Install.sh$escReset\n\n"
 fi
 ###  F I N A L  ###
 

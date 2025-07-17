@@ -37,6 +37,9 @@ Without individual config settings the `Install.sh` script will just ask for the
     While using the default settings a tweak gets installed which injects individual settings into the dnsmasq-service which got started by NetworkManagers AP Mode. The AccessPoint will function without the tweak, but then it's i.e. impossible to set individual DNS servers to get the simplest way for AdBlock, ChildProtection and AnonymousDNS. *As many other options, you can disable the tweak in the `piSpot.conf` file*. **Whenever you're changing settings, you have to run `Install.sh` again to get the changes activated.**
 
 <br>
+<p align="center">
+    <img src="./pics/install_screenshot.png" alt="Installation Screen Shot" />
+</p>
 
 ### Known issues...
 

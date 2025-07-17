@@ -21,3 +21,6 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 #Alias=dnsmasq-restarter.service
 
+APP_VERSION="0.0.3"
+APP_STATE="dev"
+APP_DATE="17.07.2025"

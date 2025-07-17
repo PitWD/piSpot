@@ -1,9 +1,9 @@
 #!/bin/bash
 
 APP_NAME="piSpot"
-APP_VERSION="0.0.2"
+APP_VERSION="0.0.3"
 APP_STATE="dev" # alpha, beta, stable, dev
-APP_DATE="16.07.2025"
+APP_DATE="17.07.2025"
 
 
 # - This script is intended to be run by systemd -
